@@ -6,30 +6,28 @@
    - Este archivo crea solo su formulario y sus estilos, así
      que no hace falta agregar nada al HTML.
    ========================================================= */
-const defaultCalendarEvents = {
-  "2026-09-14": [
-    {title:"Paro escolar general", desc:"Jornada de paro general. Se suspenden las actividades académicas del colegio durante este día."}
-  ],
-  "2026-09-15": [
-    {title:"Izada de bandera", desc:"Izada de bandera del colegio. Los estudiantes deben presentarse en el lugar indicado y participar en el acto cívico según las indicaciones de la institución."}
-  ],
-  "2026-09-18": [
-    {title:"Reunión de docentes", desc:"Reunión de docentes para revisar actividades, compromisos académicos y organización de la próxima semana."}
-  ],
-  "2026-09-23": [
-    {title:"Entrega de trabajos", desc:"Fecha de entrega de trabajos pendientes. Revisa las actividades de cada materia y realiza las entregas antes de finalizar la jornada."}
-  ],
-  "2026-09-25": [
-    {title:"Actividad institucional", desc:"Actividad institucional del colegio. Consulta las indicaciones comunicadas por los profesores y lleva los materiales solicitados."}
-  ]
-};
- 
-let calendarEvents = JSON.parse(localStorage.getItem("ade_calendar_events") || "null") || defaultCalendarEvents;
- 
-function saveCalendarEvents(){
-  localStorage.setItem("ade_calendar_events", JSON.stringify(calendarEvents));
+// Los eventos viven en la base de datos (api/eventos.php): {"2026-10-23": [{id, title, desc, groups?, by, byName, byRole, subject}]}
+let calendarEvents = {};
+
+async function cargarEventosServidor(){
+  try{
+    const resp = await fetch("api/eventos.php", {credentials:"same-origin", cache:"no-store"});
+    const d = await resp.json();
+    if(!d || !d.ok || !d.eventos || typeof d.eventos !== "object") return false;
+    calendarEvents = d.eventos;
+    return true;
+  }catch(e){
+    return false;
+  }
 }
- 
+
+// Vuelve a pedir los eventos y redibuja la pantalla
+async function recargarEventos(){
+  const ok = await cargarEventosServidor();
+  if(ok && typeof currentUser !== "undefined" && currentUser && typeof render === "function") render();
+  return ok;
+}
+
 // El calendario abre siempre en el mes actual (cambia solo cada mes)
 let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let selectedCalendarDay = null;   // día seleccionado (AAAA-MM-DD)
@@ -525,7 +523,9 @@ function editCalendarEvent(key, index){
   openCalendarModal(key, event);
 }
  
-function saveCalendarEvent(){
+let calendarBusy = false;
+
+async function saveCalendarEvent(){
   const date  = document.getElementById("calEventDate").value;
   const title = document.getElementById("calEventTitle").value.trim();
   const desc  = document.getElementById("calEventDesc").value.trim();
@@ -553,45 +553,28 @@ function saveCalendarEvent(){
   else if(mine) groups = mine.slice();       // profesor: todos sus grupos
   // administrador sin elegir: para todos (sin grupos)
 
+  if(calendarBusy) return;
+
   let isNew = true;
+  let id = "";
  
   if(calendarEditing){
-    const oldKey = calendarEditing.key;
-    const oldIndex = calendarEditing.index;
-    const event = calendarEvents[oldKey]?.[oldIndex];
- 
-    if(event){
-      if(!canManageEvent(event)) return denyPermission();
-      isNew = false;
-      event.title = title;
-      event.desc = desc;
-      if(groups) event.groups = groups; else delete event.groups;
-      if(oldKey !== date){
-        // Cambió de fecha: se mueve al nuevo día
-        calendarEvents[oldKey].splice(oldIndex,1);
-        if(!calendarEvents[oldKey].length) delete calendarEvents[oldKey];
-        if(!calendarEvents[date]) calendarEvents[date] = [];
-        calendarEvents[date].push(event);
-      }
-    }
+    const event = calendarEvents[calendarEditing.key]?.[calendarEditing.index];
+    if(!event) return;
+    if(!canManageEvent(event)) return denyPermission();
+    isNew = false;
+    id = event.id;
   }else{
     if(!requirePermission("create","calendario")) return;
-    if(!calendarEvents[date]) calendarEvents[date] = [];
-    const ev = {title:title, desc:desc};
-    if(groups) ev.groups = groups;
-    if(role === "profesor" && currentUser){
-      ev.by = currentUser.username;
-      ev.byName = currentUser.name || currentUser.username;
-      ev.byRole = "profesor";
-      ev.subject = teacherSubjectsText();
-    }else if(currentUser){
-      ev.by = currentUser.username;
-      ev.byRole = "admin";                  // colegio / institucional
-    }
-    calendarEvents[date].push(ev);
   }
- 
-  saveCalendarEvents();
+
+  calendarBusy = true;
+  const r = await apiPost("api/evento_guardar.php", {
+    accion: isNew ? "crear" : "editar", id:id, fecha:date, titulo:title, desc:desc, groups: groups || null
+  });
+  calendarBusy = false;
+
+  if(!r.ok) return alert(r.error || "No se pudo guardar el evento.");
 
   // Aviso en la campanita para los que les corresponde
   if(typeof notify === "function"){
@@ -611,18 +594,21 @@ function saveCalendarEvent(){
   selectedCalendarDay = date;
  
   closeCalendarModal();
+  await cargarEventosServidor();
   renderCalendar();
 }
  
-function deleteCalendarEvent(key, index){
+async function deleteCalendarEvent(key, index){
   if(!requirePermission("delete","calendario")) return;
   const event = calendarEvents[key]?.[index];
   if(!event) return;
   if(!canManageEvent(event)) return denyPermission();      // el profesor no borra lo del administrador
   if(!confirm("¿Eliminar este evento del calendario?")) return;
-  calendarEvents[key].splice(index,1);
-  if(!calendarEvents[key].length) delete calendarEvents[key];
-  saveCalendarEvents();
+
+  const r = await apiPost("api/evento_guardar.php", {accion:"borrar", id:event.id});
+  if(!r.ok) return alert(r.error || "No se pudo borrar el evento.");
+
+  await cargarEventosServidor();
   renderCalendar();
   showCalendarDay(key);
 }
