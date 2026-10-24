@@ -818,10 +818,15 @@ function enterApp(){
   renderAdminUsers();
   render();
 
-  // Mensajito si hay notificaciones sin leer
-  if(typeof announceUnread === "function") setTimeout(announceUnread, 1400);
+  // Se piden las notificaciones al servidor y, cuando llegan, un mensajito si hay sin leer
+  if(typeof cargarNotificaciones === "function"){
+    cargarNotificaciones().then(() => {
+      if(typeof announceUnread === "function") setTimeout(announceUnread, 600);
+    });
+  }
   // Se piden las actividades al servidor y, cuando llegan, el estudiante recibe el aviso
   // de las que vencen hoy, mañana o en 2 días
+  if(typeof recargarHorarios === "function") recargarHorarios();
   if(typeof recargarActividades === "function"){
     recargarActividades().then(() => {
       if(typeof announceDueSoon === "function") setTimeout(announceDueSoon, 1200);
@@ -840,6 +845,8 @@ function logout(){
   users = [];                       // no se deja en este computador la lista de otras cuentas
   saveUsers();
   if(typeof activities !== "undefined") activities = [];   // ni las actividades de esta cuenta
+  if(typeof groupSchedules !== "undefined"){ groupSchedules = {}; schedule = []; scheduleMode = "legacy"; }   // ni su horario
+  if(typeof notifList !== "undefined"){ notifList = []; notifSig = ""; }   // ni sus notificaciones
 
   const mainApp = $("mainApp");
   const landingScreen = $("landingScreen");

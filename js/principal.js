@@ -5,24 +5,10 @@
 // Guardado agrupado: si se llama varias veces seguidas (ej. al corregir varias entregas) se escribe
 // una sola vez, así no se congela la pantalla serializando todo cada vez. Se guarda sí o sí al
 // cerrar o cambiar de pestaña (flushSave).
-let saveTimer = null;
-
-function flushSave(){
-  if(saveTimer === null) return;
-  clearTimeout(saveTimer);
-  saveTimer = null;
-  try{
-    localStorage.setItem("ade_activities", JSON.stringify(activities));
-  }catch(e){
-    console.error("[ADE] No se pudieron guardar las actividades", e);
-    alert("No se pudo guardar: el almacenamiento del navegador está lleno. Libera espacio o quita archivos pesados.");
-  }
-}
-
-function save(){
-  if(saveTimer !== null) clearTimeout(saveTimer);
-  saveTimer = setTimeout(flushSave, 150);
-}
+// Las actividades ya no se guardan en el navegador: viven en la base de datos.
+// Estas dos funciones se dejan vacías para que cualquier llamada vieja a save() no falle.
+function flushSave(){}
+function save(){}
 
 /* ---------- Botones de icono (verdes, como los iconos del menú) ----------
    Se usan para Editar / Borrar / Agregar en Materias, Horario, Calendario y Administración.
@@ -227,9 +213,6 @@ function setPageTitle(id){
    Cada cuenta solo ve los avisos de su grupo (o los que son para todos).
    ========================================================= */
 
-const NOTIF_KEY = "ade_notifications";
-const NOTIF_MAX = 80;
-
 const NOTIF_TYPES = {
   actividad:  {label:"Actividad",  icon:'<path d="M9 4.5V3.6c0-.3.3-.6.6-.6h4.8c.3 0 .6.3.6.6v.9"/><rect x="4.5" y="4.5" width="15" height="17" rx="2.4"/><path d="M8.5 11.2h2M8.5 15.8h2M12.5 11.2h3M12.5 15.8h3"/>'},
   calendario: {label:"Calendario", icon:'<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'},
@@ -237,84 +220,60 @@ const NOTIF_TYPES = {
   aviso:      {label:"Aviso",      icon:'<path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M18.500 6.500a8 8 0 0 1 0 11"/>'}
 };
 
-// Se vuelve a leer del almacenamiento solo si el texto guardado cambió (antes se leía y
-// convertía varias veces en cada dibujo).
-let notifRawCache = null, notifListCache = [];
+// Las notificaciones viven en la base de datos (api/notificaciones.php).
+// El servidor ya manda solo las que le corresponden a esta cuenta y cuáles ya leyó.
+let notifList = [];
+let notifSig = "";
 
-function loadNotifs(){
+async function cargarNotificaciones(){
   try{
-    const raw = localStorage.getItem(NOTIF_KEY) || "[]";
-    if(raw !== notifRawCache){
-      const list = JSON.parse(raw);
-      notifListCache = Array.isArray(list) ? list : [];
-      notifRawCache = raw;
-    }
-    return notifListCache.slice();
-  }catch(e){ return []; }
+    const resp = await fetch("api/notificaciones.php", {credentials:"same-origin", cache:"no-store"});
+    const d = await resp.json();
+    if(!d || !d.ok || !Array.isArray(d.notificaciones)) return false;
+    const sig = JSON.stringify(d.notificaciones);
+    const changed = sig !== notifSig;
+    notifSig = sig;
+    notifList = d.notificaciones;
+    if(changed) renderNotifications();
+    return true;
+  }catch(e){
+    return false;
+  }
 }
 
-function saveNotifs(list){
-  try{ localStorage.setItem(NOTIF_KEY, JSON.stringify(list.slice(0, NOTIF_MAX))); }catch(e){ console.error("[ADE] No se pudieron guardar las notificaciones", e); }
-}
+function loadNotifs(){ return notifList.slice(); }
 
-// Publica una notificación. groups = lista de grupos, o null para todos.
-function notify(n){
-  const list = loadNotifs();
-  list.unshift({
-    id: "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+// Publica una notificación en el servidor. groups = lista de grupos, o null para todos.
+// Quien la publica no la recibe; les llega a los demás cuando abren la página o cada minuto.
+async function notify(n){
+  const r = await apiPost("api/notificacion_crear.php", {
     type: n.type || "aviso",
     title: n.title || "",
     text: n.text || "",
     groups: Array.isArray(n.groups) && n.groups.length ? n.groups : null,
     page: n.page || "",
-    to: n.to || "",                 // solo para esa cuenta (ej. "tu trabajo fue calificado")
-    by: currentUser ? currentUser.username : "",
-    byName: currentUser ? (currentUser.name || currentUser.username) : "",
-    role: getRole(),
-    date: new Date().toISOString()
+    to: n.to || ""                  // solo para esa cuenta (ej. "tu trabajo fue calificado")
   });
-  saveNotifs(list);
-  renderNotifications();
+  if(!r.ok) console.error("[ADE] No se pudo publicar la notificación:", r.error);
+  return !!r.ok;
 }
 
-// ¿Le corresponde esta notificación a la cuenta actual?
-function canSeeNotif(n){
-  if(!n || !currentUser) return false;
-  if(n.by && n.by === currentUser.username) return false;       // lo que publiqué yo no me avisa a mí
-  const role = getRole();
-  if(n.to) return n.to === currentUser.username;
-  if(role === "admin" || !Array.isArray(n.groups) || !n.groups.length) return true;
-  if(role === "profesor"){
-    const mine = teacherGroups();
-    return !mine || n.groups.some(g => mine.includes(g));
-  }
-  return n.groups.includes(studentGroup());
-}
+function myNotifs(){ return notifList.slice(); }       // el servidor ya filtró
 
-function readKey(){ return "ade_notif_read_" + (currentUser ? currentUser.username : ""); }
-
-function readIds(){
-  try{ const a = JSON.parse(localStorage.getItem(readKey()) || "[]"); return Array.isArray(a) ? a : []; }
-  catch(e){ return []; }
-}
-
-function myNotifs(){ return loadNotifs().filter(canSeeNotif); }
-
-function unreadCount(){
-  const seen = new Set(readIds());
-  return myNotifs().filter(n => !seen.has(n.id)).length;
-}
+function unreadCount(){ return notifList.filter(n => !n.read).length; }
 
 function markNotifRead(id){
-  const ids = readIds();
-  if(ids.indexOf(id) === -1) ids.push(id);
-  try{ localStorage.setItem(readKey(), JSON.stringify(ids.slice(-300))); }catch(e){}
+  const n = notifList.find(x => x.id === id);
+  if(!n || n.read) return;
+  n.read = true;
+  notifSig = JSON.stringify(notifList);
+  apiPost("api/notificacion_leer.php", {ids:[id]});
 }
 
 function markAllNotifsRead(){
-  const ids = new Set(readIds());
-  myNotifs().forEach(n => ids.add(n.id));
-  try{ localStorage.setItem(readKey(), JSON.stringify(Array.from(ids).slice(-300))); }catch(e){}
+  notifList.forEach(n => { n.read = true; });
+  notifSig = JSON.stringify(notifList);
+  apiPost("api/notificacion_leer.php", {todas:true});
   renderNotifications();
 }
 
@@ -431,10 +390,9 @@ function setupNotifBell(){
     if(e.key === "Escape" && $("notifPanel")) { $("notifPanel").classList.remove("open"); $("notifBtn").classList.remove("open"); }
   });
 
-  // Si otra pestaña publica algo, la campanita se actualiza sola
-  window.addEventListener("storage", function(e){
-    if(e.key === NOTIF_KEY) renderNotifications();
-  });
+  // Si otra persona publica algo, la campanita se actualiza sola (cada minuto y al volver a la pestaña)
+  setInterval(function(){ if(currentUser && !document.hidden) cargarNotificaciones(); }, 60000);
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden && currentUser) cargarNotificaciones(); });
 }
 
 function renderNotifications(){
@@ -445,9 +403,8 @@ function renderNotifications(){
 
   if(!currentUser){ badge.style.display = "none"; return; }
 
-  const seen = new Set(readIds());
   const list = myNotifs();
-  const unread = list.filter(n => !seen.has(n.id)).length;
+  const unread = list.filter(n => !n.read).length;
 
   badge.textContent = unread > 9 ? "9+" : unread;
   badge.style.display = unread ? "grid" : "none";
@@ -461,7 +418,7 @@ function renderNotifications(){
     '<div class="notif-list">' +
       (list.length ? list.slice(0, 30).map(n => {
         const t = NOTIF_TYPES[n.type] || NOTIF_TYPES.aviso;
-        const isUnread = !seen.has(n.id);
+        const isUnread = !n.read;
         return '<div class="notif-item' + (isUnread ? ' unread' : '') + '" onclick="openNotif(\'' + n.id + '\')">' +
           '<div class="notif-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + t.icon + '</svg></div>' +
           '<div class="notif-body"><strong>' + escapeHtml(n.title) + '</strong>' +
