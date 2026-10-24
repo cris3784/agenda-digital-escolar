@@ -635,7 +635,7 @@ async function registerUser(){
     myGroups = (gi ? gi.value : "").split(/[,;\s]+/).map(g => g.trim()).filter(Boolean);
     myGroups = myGroups.filter((g, i) => myGroups.indexOf(g) === i);
     if(!myGroups.length) return say("Escribe los grupos que atiendes (ej. 6-1, 7-2).");
-    const known = (window.ADE_CURRICULUM && Array.isArray(ADE_CURRICULUM.groups)) ? ADE_CURRICULUM.groups : null;
+    const known = (window.ADE_CURRICULUM && Array.isArray(ADE_CURRICULUM.groups) && ADE_CURRICULUM.groups.length) ? ADE_CURRICULUM.groups : null;
     const bad = myGroups.find(g => !/^\d{1,2}-\d{1,2}$/.test(g) || (known && !known.includes(g)));
     if(bad) return say('El grupo "' + bad + '" no existe. Usa el formato 6-1.');
   }

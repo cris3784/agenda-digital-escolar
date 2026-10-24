@@ -18,6 +18,36 @@ async function cargarMateriasServidor(){
   }
 }
 
+// Grupos del colegio (vienen de la base de datos) y las materias de cada grupo (según su horario).
+// Varias pantallas leen ADE_CURRICULUM.groups para ofrecer la lista de grupos.
+window.ADE_CURRICULUM = {
+  groups: [],
+  subjectsOfGroup: function(g){
+    const dias = (typeof groupSchedules !== "undefined" && groupSchedules[g]) || [];
+    const lista = [];
+    dias.forEach(function(d){
+      d.classes.forEach(function(c){
+        const n = typeof ttSubjectName === "function" ? ttSubjectName(c.subject) : c.subject;
+        if(lista.indexOf(n) < 0) lista.push(n);
+      });
+    });
+    return lista;
+  }
+};
+
+async function cargarGruposServidor(){
+  try{
+    const resp = await fetch("api/grupos.php", {cache:"no-store"});
+    const d = await resp.json();
+    if(!d || !d.ok || !Array.isArray(d.grupos)) return false;
+    ADE_CURRICULUM.groups = d.grupos;
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+cargarGruposServidor();
+
 // Se piden al abrir la página; cuando llegan, se vuelve a dibujar lo que las muestra
 const materiasListas = cargarMateriasServidor().then(ok => {
   if(ok && typeof currentUser !== "undefined" && currentUser){
