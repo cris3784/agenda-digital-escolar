@@ -1,0 +1,430 @@
+/* ===== GENERAL ===== */
+/* Una sola tipografía en TODA la página (Arial) */
+html,body,button,input,select,textarea,table{font-family:Arial,Helvetica,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:#010612;color:#f4f7fb;min-height:100vh}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer;border:0}
+
+/* ===== APLICACIÓN ===== */
+.app{display:flex;min-height:100vh}
+.sidebar{width:245px;background:rgba(5,13,32,.84);border-right:1px solid #26304a;padding:22px 15px;position:fixed;left:0;top:0;bottom:0}
+.logo{display:flex;align-items:center;gap:11px;padding:8px 10px 28px;font-size:20px;font-weight:bold}
+.logo-icon{width:42px;height:42px;border-radius:12px;background:#fff;color:#11182b;display:grid;place-items:center;font-size:22px}
+.nav-title{font-size:11px;color:#7e8aa5;text-transform:uppercase;margin:15px 12px 8px}
+.nav button{width:100%;background:transparent;color:#aeb8cc;text-align:left;padding:12px 13px;border-radius:10px;margin:3px 0;transition:.2s}
+.nav button:hover,.nav button.active{background:#202a43;color:#fff}
+.nav button.active{box-shadow:inset 3px 0 #fff}
+.sidebar-bottom{position:absolute;left:15px;right:15px;bottom:18px;border-top:1px solid #26304a;padding-top:15px}
+.user-mini{display:flex;align-items:center;gap:10px;color:#c7cede;font-size:13px;padding:8px}
+.avatar{width:36px;height:36px;border-radius:50%;background:#e9edf5;color:#11182b;display:grid;place-items:center;font-weight:bold}
+.main{margin-left:245px;width:calc(100% - 245px)}
+.topbar{height:72px;background:rgba(5,13,32,.8);border-bottom:1px solid #26304a;display:flex;align-items:center;justify-content:space-between;padding:0 30px;position:sticky;top:0;z-index:5}
+.topbar h1{font-size:20px}
+.clock{color:#aeb8cc;font-size:14px}
+.content{padding:30px;max-width:1400px;margin:auto}
+.page{display:none}
+.page.active{display:block}
+.welcome{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
+.welcome h2{font-size:28px;margin-bottom:7px}
+.welcome p{color:#8f9ab1}
+.grid{display:grid;gap:18px}
+.stats{grid-template-columns:repeat(4,1fr)}
+.card{background:rgba(8,20,46,.78);border:1px solid #26304a;border-radius:15px;padding:20px;box-shadow:0 8px 25px #0002}
+.stat-label{font-size:13px;color:#8995ad}
+.stat-number{font-size:30px;font-weight:bold;margin-top:9px}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin:28px 0 15px}
+.section-head h3{font-size:18px}
+.btn{background:#f1f3f7;color:#101522;border-radius:9px;padding:10px 15px;font-weight:bold}
+.btn:hover{filter:brightness(.9)}
+.btn.secondary{background:#202a43;color:#dfe5f1}
+.btn.danger{background:#49202a;color:#ffb9c4}
+.subjects{grid-template-columns:repeat(4,1fr)}
+.subject{min-height:120px;display:flex;flex-direction:column;justify-content:space-between}
+.subject h4{font-size:17px}
+.subject small{color:#8995ad}
+.progress{height:6px;background:#252f48;border-radius:8px;overflow:hidden;margin-top:12px}
+.progress i{display:block;height:100%;background:#e8ecf3}
+.activities{grid-template-columns:repeat(2,1fr)}
+.activity{display:flex;justify-content:space-between;gap:15px;align-items:center}
+.activity-info h4{margin-bottom:6px}
+.activity-info p,.muted{color:#8995ad;font-size:13px}
+.badge{font-size:11px;padding:6px 9px;border-radius:20px;background:#202a43;color:#cdd5e4;white-space:nowrap}
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px}
+.field{display:flex;flex-direction:column;gap:7px}
+.field label{font-size:13px;color:#aeb8cc}
+.field input,.field select,.field textarea{background:#0b1020;color:#fff;border:1px solid #303b57;border-radius:9px;padding:11px;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#7e8aa5}
+.field.full{grid-column:1/-1}
+.actions{display:flex;gap:9px;margin-top:18px}
+.table-wrap{overflow:auto}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{text-align:left;padding:13px;border-bottom:1px solid #26304a;font-size:13px}
+.table th{color:#8995ad}
+.profile{max-width:700px}
+.profile-top{display:flex;gap:18px;align-items:center;margin-bottom:25px}
+.big-avatar{width:70px;height:70px;border-radius:50%;background:#eef1f6;color:#11182b;display:grid;place-items:center;font-size:25px;font-weight:bold}
+.modal{position:fixed;inset:0;background:#0009;display:none;place-items:center;padding:20px;z-index:20}
+.modal.show{display:grid}
+.modal-box{background:#11182b;border:1px solid #303b57;border-radius:15px;width:min(600px,100%);padding:22px}
+.modal-head{display:flex;justify-content:space-between;margin-bottom:18px}
+.close{background:transparent;color:#fff;font-size:23px}
+.empty{text-align:center;padding:35px;color:#8995ad}
+
+/* ===== PANTALLA PÚBLICA (se adapta a cualquier pantalla) ===== */
+/* Ocupa todo el alto de la ventana: el contenido se centra y el pie queda siempre abajo.
+   Los tamaños crecen solos en pantallas grandes (clamp) y se apilan en tablet y celular.
+   La 2.ª línea deja que el JS la siga ocultando (display:none) al iniciar sesión. */
+.landing-screen{min-height:100vh;min-height:100dvh;background:transparent;color:#eef2f7;display:flex !important;flex-direction:column}
+.landing-screen[style*="display: none"],.landing-screen[style*="display:none"]{display:none !important}
+
+.landing-header{flex:none;height:78px;background:rgba(5,13,32,.8);display:flex;align-items:center;padding:0 7%;border-bottom:1px solid #26304a}
+.brand{display:flex;align-items:center;gap:12px;color:#eaf0f5;font-size:19px;font-weight:bold}
+.brand-mark{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#1d8f60;color:#fff;font-size:21px;box-shadow:0 4px 15px #0005}
+
+.reference-nav{flex:none;background:#07384a;border-bottom:3px solid #1d8f60;display:flex;justify-content:center}
+.reference-nav-inner{display:flex;justify-content:center;gap:2px}
+.reference-nav button{background:transparent;color:#dbe9ee;padding:12px 15px;font-size:11px;text-transform:uppercase;transition:.2s}
+.reference-nav button:hover{background:#0d5067;color:#fff}
+
+/* Zona central: ocupa el espacio que sobra y centra el contenido en vertical */
+.reference-main{flex:1 0 auto;width:95%;max-width:2000px;margin:0 auto;padding:clamp(28px,3vw,64px) 18px clamp(24px,2.4vw,52px);display:flex;flex-direction:column;justify-content:center}
+.reference-layout{display:grid;grid-template-columns:clamp(180px,13vw,300px) minmax(0,1fr) clamp(240px,17vw,380px);gap:clamp(10px,1vw,24px);align-items:start}
+
+.reference-left{display:flex;flex-direction:column;gap:clamp(8px,.6vw,14px)}
+.reference-left button{background:#238b5b;color:#fff;text-align:left;border-radius:10px;padding:clamp(11px,.85vw,19px) clamp(12px,.9vw,20px);font-size:clamp(10px,.76vw,15px);font-weight:bold;border:1px solid #2ba96e;box-shadow:0 4px 12px #0004;transition:.2s}
+.reference-left button:hover{background:#2ba96e;transform:translateX(2px)}
+
+.reference-center{min-width:0}
+.reference-banner{min-height:190px;border-radius:12px;overflow:hidden;background:radial-gradient(circle at 85% 25%,#194d3b 0%,transparent 35%),linear-gradient(110deg,#111c2c 0%,#142c2c 55%,#163b32 100%);border:1px solid #294452;display:flex;align-items:center;padding:clamp(22px,1.5vw,36px) clamp(25px,1.8vw,42px);box-shadow:0 10px 30px #0005}
+
+.reference-icons{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,.9vw,22px);margin:clamp(18px,1.3vw,32px) 0 clamp(25px,1.6vw,40px)}
+.reference-icons div{text-align:center;color:#b7c8ce;font-size:clamp(10px,.76vw,15px);background:rgba(8,20,46,.78);border:1px solid #26304a;border-radius:10px;padding:clamp(12px,.9vw,22px) 5px;transition:.2s}
+.reference-icons div:hover{border-color:#238b5b;transform:translateY(-2px)}
+.reference-icons span{display:grid;place-items:center;margin:0 auto clamp(7px,.5vw,12px);width:clamp(45px,3.1vw,70px);height:clamp(45px,3.1vw,70px);border-radius:50%;background:#238b5b;color:#fff;font-size:clamp(19px,1.3vw,30px);box-shadow:0 5px 15px #0005}
+
+.reference-login{background:rgba(8,20,46,.82);border:1px solid #26304a;border-radius:12px;padding:clamp(20px,1.4vw,34px) clamp(12px,1vw,24px);box-shadow:0 8px 10px #0005;min-height:370px}
+.login-head{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px;margin-bottom:clamp(30px,2vw,48px);color:#dce6ea;font-size:clamp(30px,2.1vw,48px)}
+.login-head b{color:#47b97c}
+.login-head span{font-size:clamp(8px,.6vw,13px);color:#718b96}
+.reference-login label{display:block;font-size:clamp(12px,.85vw,16px);color:#9eafba;margin:clamp(12px,.9vw,20px) 0 4px}
+.reference-login input{width:100%;background:#0b1020;border:1px solid #303b57;border-radius:6px;padding:clamp(11px,.8vw,16px);font-size:clamp(12px,.85vw,16px);color:#eaf0f5;outline:none}
+.reference-login input:focus{border-color:#38b876}
+.quick-login-btn,.quick-register-btn{width:100%;border:0;border-radius:11px;padding:clamp(11px,.8vw,17px);margin-top:clamp(11px,.8vw,18px);font-size:clamp(11px,.8vw,15px);font-weight:bold;transition:.2s}
+.quick-login-btn{background:#238b5b;color:#fff}
+.quick-login-btn:hover{background:#2daa6c}
+.quick-register-btn{background:#1b2d3d;color:#79cda3;border:1px solid #2a4d4a}
+.quick-register-btn:hover{background:#223b4b}
+.reference-login a{display:block;text-align:center;color:#5da1c2;font-size:clamp(11px,.8vw,15px);margin-top:clamp(12px,.9vw,20px);cursor:pointer}
+
+.landing-footer{flex:none;background:#07384a;color:#9db7c0;border-top:1px solid #164f61;padding:clamp(18px,1.2vw,28px);text-align:center;font-size:clamp(10px,.76vw,14px)}
+
+/* ===== CARRUSEL (los banners se ven completos y crecen con la pantalla) ===== */
+.carrusel{position:relative;width:100%;max-width:1500px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.carrusel-ventana{flex:1;min-width:0;height:auto;aspect-ratio:13/5;overflow:hidden;border-radius:12px}
+.carrusel-imagenes{display:flex;height:100%;transition:transform .4s ease}
+.carrusel-imagenes img{min-width:100%;width:100%;height:100%;object-fit:contain;display:block}
+.flecha{flex-shrink:0;width:clamp(38px,2.4vw,56px);height:clamp(38px,2.4vw,56px);border:none;border-radius:6px;background:#159447;color:#fff;font-size:clamp(20px,1.3vw,30px);font-weight:bold;cursor:pointer}
+.flecha:hover{background:#0f7137}
+
+/* ===== AUTENTICACIÓN ===== */
+.auth-screen{position:fixed;inset:0;background:var(--ambient);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}
+.auth-screen.show{display:flex}
+.auth-card{width:min(430px,100%);max-height:95vh;overflow:auto;background:rgba(8,20,46,.88);border:1px solid #26304a;border-radius:18px;padding:32px;box-shadow:0 20px 60px #0008;position:relative}
+.auth-close{position:absolute;right:18px;top:15px;background:transparent;color:#8995ad;font-size:26px}
+.auth-close:hover{color:#fff}
+.auth-logo{text-align:center;margin-bottom:25px}
+.auth-logo-icon{width:64px;height:64px;border-radius:17px;background:#eef1f6;color:#11182b;display:grid;place-items:center;font-size:31px;margin:0 auto 13px}
+.auth-logo h1{font-size:23px}
+.auth-logo p{color:#8995ad;margin-top:5px}
+.auth-card h2{font-size:23px;margin-bottom:6px}
+.auth-subtitle{color:#8995ad;font-size:13px;margin-bottom:20px}
+.auth-field{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.auth-field label{font-size:13px;color:#aeb8cc}
+.auth-field input,.auth-field select{width:100%;background:#0b1020;color:#fff;border:1px solid #303b57;border-radius:9px;padding:12px;outline:none}
+.auth-field input:focus,.auth-field select:focus{border-color:#8f9ab1}
+.auth-btn{width:100%;padding:12px;background:#eef1f6;color:#101522;border-radius:9px;font-weight:bold;margin-top:5px}
+.auth-btn:hover{filter:brightness(.9)}
+.switch-auth{text-align:center;color:#8995ad;font-size:13px;margin-top:18px}
+.switch-auth button{background:none;color:#fff;font-weight:bold;margin-left:4px}
+.auth-message{text-align:center;min-height:18px;font-size:13px;margin-top:10px;color:#ffb9c4}
+
+/* ===== CALENDARIO ===== */
+.calendar-card{overflow:hidden}
+.calendar-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.calendar-head h3{text-align:center;flex:1;font-size:20px}
+.calendar-weekdays,.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.calendar-weekdays{margin-bottom:8px}
+.calendar-weekdays div{text-align:center;font-size:12px;font-weight:700;color:#7e8aa5;padding:8px 2px}
+.calendar-day{min-height:92px;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:9px;background:rgba(255,255,255,.02);cursor:pointer;transition:.15s}
+.calendar-day:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.18)}
+.calendar-day.empty{opacity:.25;cursor:default}
+.calendar-day.today{outline:2px solid rgba(255,255,255,.2)}
+.calendar-number{font-weight:700;margin-bottom:7px}
+.calendar-event{font-size:11px;line-height:1.3;padding:5px 6px;border-radius:7px;background:rgba(91,141,239,.16);color:#dfe8ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
+.calendar-event.more{background:rgba(255,255,255,.07)}
+.calendar-details{margin-top:18px;padding:16px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);min-height:70px}
+.calendar-details h4{margin-bottom:8px;font-size:17px}
+.calendar-details p{color:#dfe5f1;line-height:1.55;white-space:pre-wrap}
+.calendar-detail-item{padding:10px 0;border-top:1px solid rgba(255,255,255,.07)}
+.calendar-detail-item:first-child{border-top:0;padding-top:0}
+
+/* ===== RESPONSIVE ===== */
+/* Tablet horizontal / laptop pequeña */
+@media(max-width:1100px){
+  .activities{grid-template-columns:1fr}
+}
+@media(max-width:1050px){.stats,.subjects{grid-template-columns:repeat(2,1fr)}}
+
+/* Tablet vertical: todo en una columna (botones en fila, banner y luego el ingreso) */
+@media(max-width:900px){
+  .reference-layout{grid-template-columns:1fr}
+  .reference-left{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-row:auto}
+  .reference-left button{font-size:12px;text-align:center}
+  .reference-center{grid-column:auto}
+  .reference-login{grid-column:auto;display:grid;grid-template-columns:repeat(2,1fr);gap:7px 10px;min-height:0}
+  .login-head,.reference-login a{grid-column:1/-1}
+  .reference-login label{font-size:13px}
+  .reference-login input,.quick-login-btn,.quick-register-btn,.reference-login a{font-size:13px}
+}
+
+/* Tablet: el menú se reduce a una columna de iconos */
+@media(max-width:900px){
+  .sidebar{width:70px;padding:15px 8px}
+  .logo span,.nav-title,.nav button span{display:none}
+  .logo{justify-content:center}
+  .nav button{text-align:center}
+  .main{margin-left:70px;width:calc(100% - 70px)}
+  .topbar{padding:0 18px}
+  .content{padding:22px 18px}
+}
+
+@media(max-width:700px){
+  .topbar{padding:0 15px}
+  .content{padding:18px}
+  .stats,.subjects,.activities,.form-grid{grid-template-columns:1fr}
+  .welcome{display:block}
+  .welcome .btn{margin-top:15px}
+  .calendar-weekdays,.calendar-grid{gap:4px}
+  .calendar-day{min-height:72px;padding:6px}
+  .calendar-event{font-size:10px}
+  .calendar-weekdays div{font-size:10px}
+}
+
+/* Celular */
+@media(max-width:600px){
+  .landing-header{padding:0 14px;gap:10px}
+  .brand{font-size:13px;line-height:1.15;gap:8px;min-width:0}
+  .reference-nav-inner{justify-content:center;flex-wrap:wrap}
+  .reference-main{width:100%;padding:20px 12px 28px}
+  .reference-layout{grid-template-columns:1fr}
+  .reference-left,.reference-center,.reference-login{grid-column:auto;grid-row:auto}
+  .reference-left{grid-template-columns:repeat(2,1fr)}
+  .reference-left button{padding:12px 10px}
+  .reference-banner{min-height:0;padding:8px}
+  .reference-icons{grid-template-columns:repeat(2,1fr)}
+  .reference-login{display:block}
+  .auth-card{padding:25px 20px}
+  /* el banner ocupa todo el ancho; las flechas van encima de la imagen */
+  .carrusel{margin:0}
+  .carrusel-ventana{aspect-ratio:7/3}
+  .flecha{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:30px;height:30px;font-size:16px;background:rgba(21,148,71,.7)}
+  .flecha:first-child{left:4px}
+  .flecha:last-child{right:4px}
+}
+
+/* ===== AMBIENTE (el mismo fondo azul oscuro de la entrada, en toda la página) ===== */
+:root{
+  --ambient:
+    radial-gradient(ellipse 70% 55% at 50% 42%, rgba(18,105,255,.30), transparent 70%),
+    radial-gradient(ellipse at 50% 55%, transparent 40%, rgba(0,14,40,.65) 75%, rgba(0,2,6,.95) 100%),
+    linear-gradient(180deg,#010612 0%,#072a63 52%,#030f22 100%);
+}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none}
+/* FONDO. Antes era un solo dibujo animado con background-position (se repintaba entero en cada cuadro).
+   Ahora son capas que se mueven con transform (las mueve la tarjeta gráfica): se ve igual, casi sin costo.
+   Las capas las crea principal.js dentro de <div class="amb-mist">. Orden (de abajo hacia arriba):
+   l = degradado azul de fondo · v = viñeta oscura · r = brillo central · m4,m3,m2,m1 = neblina */
+body::before{display:none}
+.amb-mist{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.amb-mist i{position:absolute;display:block;left:0;top:0;animation-duration:26s;animation-timing-function:ease-in-out;animation-iteration-count:infinite;animation-direction:alternate}
+.amb-mist .l,.amb-mist .v{width:140%;height:140%;will-change:transform}
+.amb-mist .l{background:linear-gradient(180deg,#010612 0%,#072a63 52%,#030f22 100%);animation-name:ambL}
+.amb-mist .v{background:radial-gradient(ellipse at 50% 55%, transparent 40%, rgba(0,14,40,.65) 75%, rgba(0,2,6,.95) 100%);animation-name:ambV}
+.amb-mist .r{width:100%;height:100%;background:radial-gradient(ellipse 70% 55% at 50% 42%, rgba(18,105,255,.30), transparent 70%);animation:none}
+.amb-mist .m1{left:-26.6000%;top:-5.6000%;width:95.2000%;height:72.8000%;will-change:transform;background:radial-gradient(ellipse 50% 50% at 50% 50%,rgba(14,70,170,.42),transparent 100%);animation-name:ambM1}
+.amb-mist .m2{left:72.8000%;top:-14.0000%;width:100.8000%;height:78.4000%;will-change:transform;background:radial-gradient(ellipse 50% 50% at 50% 50%,rgba(12,64,160,.36),transparent 100%);animation-name:ambM2}
+.amb-mist .m3{left:-7.0000%;top:67.2000%;width:84.0000%;height:61.6000%;will-change:transform;background:radial-gradient(ellipse 50% 50% at 50% 50%,rgba(15,66,144,.26),transparent 100%);animation-name:ambM3}
+.amb-mist .m4{left:67.2000%;top:61.6000%;width:84.0000%;height:61.6000%;will-change:transform;background:radial-gradient(ellipse 50% 50% at 50% 50%,rgba(14,61,134,.26),transparent 100%);animation-name:ambM4}
+@keyframes ambL{from{transform:translate3d(-28.5714%,0.0000%,0)}to{transform:translate3d(0.0000%,-17.1429%,0)}}
+@keyframes ambV{from{transform:translate3d(0.0000%,0.0000%,0)}to{transform:translate3d(-28.5714%,-11.4286%,0)}}
+@keyframes ambM1{from{transform:translate3d(-0.0000%,-0.0000%,0)}to{transform:translate3d(-42.0168%,-21.9780%,0)}}
+@keyframes ambM2{from{transform:translate3d(-39.6825%,-0.0000%,0)}to{transform:translate3d(-0.0000%,-30.6122%,0)}}
+@keyframes ambM3{from{transform:translate3d(-0.0000%,-64.9351%,0)}to{transform:translate3d(-28.5714%,-0.0000%,0)}}
+@keyframes ambM4{from{transform:translate3d(-47.6190%,-64.9351%,0)}to{transform:translate3d(-14.2857%,-51.9481%,0)}}
+/* brasas azules (y alguna verde) que suben despacio.
+   Se mueven con transform (la tarjeta gráfica las desplaza) en vez de background-position:
+   se ve igual, pero ya no se vuelve a pintar todo el fondo en cada cuadro. */
+body::after{
+  content:"";position:fixed;left:0;right:0;top:0;bottom:-960px;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(circle at 351px 174px,#d8fff0 0 1.3px,rgba(35,160,90,.75) 2.2px,transparent 5.3px),
+    radial-gradient(circle at 69px 94px,#dbe9ff 0 1.8px,rgba(40,100,255,.75) 3.0px,transparent 7.2px),
+    radial-gradient(circle at 116px 394px,#dbe9ff 0 1.8px,rgba(40,100,255,.75) 3.0px,transparent 7.2px),
+    radial-gradient(circle at 79px 539px,#dbe9ff 0 1.0px,rgba(40,100,255,.75) 1.6px,transparent 3.8px),
+    radial-gradient(circle at 58px 108px,#d8fff0 0 1.3px,rgba(35,160,90,.75) 2.2px,transparent 5.3px),
+    radial-gradient(circle at 448px 91px,#dbe9ff 0 1.0px,rgba(40,100,255,.75) 1.6px,transparent 3.8px),
+    radial-gradient(circle at 112px 584px,#dbe9ff 0 1.3px,rgba(40,100,255,.75) 2.2px,transparent 5.3px),
+    radial-gradient(circle at 80px 866px,#dbe9ff 0 1.8px,rgba(40,100,255,.75) 3.0px,transparent 7.2px),
+    radial-gradient(circle at 146px 248px,#d8fff0 0 1.8px,rgba(35,160,90,.75) 3.0px,transparent 7.2px);
+  background-size:640px 960px,640px 960px,640px 960px,640px 960px,640px 960px,640px 960px,640px 960px,640px 960px,640px 960px;
+  background-repeat:repeat;
+  opacity:.7;
+  will-change:transform;
+  animation:ambEmbersA 48s linear infinite;
+}
+html::after{
+  content:"";position:fixed;left:0;right:0;top:0;bottom:-1200px;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(circle at 662px 146px,#d8fff0 0 1.8px,rgba(35,160,90,.75) 3.0px,transparent 7.2px),
+    radial-gradient(circle at 619px 832px,#dbe9ff 0 1.0px,rgba(40,100,255,.75) 1.6px,transparent 3.8px),
+    radial-gradient(circle at 246px 115px,#dbe9ff 0 1.8px,rgba(40,100,255,.75) 3.0px,transparent 7.2px),
+    radial-gradient(circle at 156px 613px,#d8fff0 0 1.3px,rgba(35,160,90,.75) 2.2px,transparent 5.3px),
+    radial-gradient(circle at 167px 1127px,#dbe9ff 0 1.0px,rgba(40,100,255,.75) 1.6px,transparent 3.8px),
+    radial-gradient(circle at 604px 651px,#dbe9ff 0 1.8px,rgba(40,100,255,.75) 3.0px,transparent 7.2px),
+    radial-gradient(circle at 855px 390px,#d8fff0 0 1.0px,rgba(35,160,90,.75) 1.6px,transparent 3.8px);
+  background-size:880px 1200px,880px 1200px,880px 1200px,880px 1200px,880px 1200px,880px 1200px,880px 1200px;
+  background-repeat:repeat;
+  opacity:.7;
+  will-change:transform;
+  animation:ambEmbersB 48s linear infinite;
+}
+@keyframes ambEmbersA{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,-960px,0)}}
+@keyframes ambEmbersB{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,-1200px,0)}}
+.app,.landing-screen{position:relative;z-index:1}
+@media (prefers-reduced-motion:reduce){body::after,html::after,.amb-mist i{animation:none}}
+
+/* ===== USUARIO ARRIBA A LA DERECHA (antes estaba abajo a la izquierda) ===== */
+.sidebar-bottom.in-topbar{position:static;left:auto;right:auto;bottom:auto;border-top:0;padding-top:0;margin-left:auto;flex:none}
+.sidebar-bottom.in-topbar .user-mini{flex-direction:row-reverse;text-align:right;padding:4px 0 4px 8px;gap:12px;font-size:14px;color:#e4ebf7}
+.sidebar-bottom.in-topbar .user-mini span{display:block;line-height:1.3}
+.sidebar-bottom.in-topbar .avatar{width:42px;height:42px;border:2px solid #23a05a;box-shadow:0 0 12px rgba(46,230,160,.3);flex:none}
+@media(max-width:520px){
+  .sidebar-bottom.in-topbar .user-mini span{display:none}
+  .sidebar-bottom.in-topbar .avatar{width:38px;height:38px}
+}
+
+/* =========================================================
+   APLICACIÓN ADAPTABLE (Inicio, Actividades, Materias, Horario,
+   Calendario, Mi perfil y Administración)
+   Pantalla grande → más columnas · tablet → menú de iconos ·
+   celular → menú abajo, tarjetas apiladas y tablas en tarjetas.
+   (#mainApp sube la prioridad para ganarle a los estilos que
+   inyectan los .js)
+   ========================================================= */
+
+/* ---- Pantallas grandes: se aprovecha el ancho ---- */
+@media(min-width:1500px){
+  #mainApp .content{max-width:1700px;padding:34px 40px}
+  #mainApp .subjects{grid-template-columns:repeat(5,1fr)}
+}
+@media(min-width:2000px){
+  .sidebar{width:270px}
+  .main{margin-left:270px;width:calc(100% - 270px)}
+  #mainApp .content{max-width:2100px;padding:40px 56px}
+  #mainApp .activities{grid-template-columns:repeat(3,1fr)}
+  #mainApp .subjects{grid-template-columns:repeat(6,1fr)}
+  #mainApp .tt{min-width:900px}
+  #mainApp #subjectList{grid-template-columns:repeat(6,1fr)}
+}
+
+/* ---- Tablet / celular grande ---- */
+@media(max-width:900px){
+  #mainApp .tt{min-width:720px}
+  #mainApp .calendar-card .calendar-details{max-height:none}
+  .modal-box{max-height:92vh;overflow:auto}
+}
+
+/* ---- Celular: menú abajo ---- */
+@media(max-width:640px){
+  #mainApp .sidebar{
+    top:auto;left:0;right:0;bottom:0;width:100%;height:62px;padding:6px 8px;
+    border-right:0;border-top:1px solid #26304a;
+    display:flex;flex-direction:row;align-items:center;gap:2px;
+    overflow-x:auto;overflow-y:hidden;z-index:15;
+    background:rgba(4,10,26,.96);
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  #mainApp .sidebar::-webkit-scrollbar{display:none}
+  #mainApp .sidebar .logo,#mainApp .sidebar .nav-title{display:none}
+  #mainApp .sidebar .nav{display:contents}
+  #mainApp .nav button{
+    flex:1 0 44px;width:auto;height:46px;margin:0;padding:0 6px;
+    display:grid;place-items:center;font-size:20px;border-radius:12px;
+  }
+  #mainApp .nav button.active{box-shadow:inset 0 -3px #fff}
+  .main{margin-left:0;width:100%}
+  .topbar{height:60px;padding:0 14px}
+  .topbar h1{font-size:18px}
+  #mainApp .content{padding:16px 14px 84px}
+
+  /* encabezado de cada página: título y botón uno bajo el otro */
+  .page .welcome{display:block}
+  .page .welcome .btn{margin-top:10px}
+
+  /* Inicio: cuadros de números de 2 en 2 */
+  #mainApp .stats{grid-template-columns:repeat(2,1fr);gap:10px}
+  #mainApp .stats .card{padding:12px 14px}
+
+  /* Actividades: texto arriba, estado y botones abajo (antes el texto se aplastaba) */
+  #mainApp .card.activity{flex-direction:column;align-items:stretch;gap:10px}
+  #mainApp .card.activity .activity-info{flex:none;width:100%}
+  #mainApp .card.activity .activity-side{
+    flex:none;width:100%;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  }
+  #mainApp .card.activity .activity-actions{flex-wrap:wrap !important;justify-content:flex-start}
+
+  /* Materias: dos por fila en celular */
+  #mainApp .subjects,#mainApp #subjectList{grid-template-columns:repeat(2,1fr);gap:10px}
+  #mainApp .card.subject{padding:12px}
+  #mainApp .card.subject h4{font-size:14px}
+
+  /* Horario: se desliza hacia los lados con el dedo */
+  #mainApp #scheduleList{margin:0 -14px;padding:0 14px 6px;-webkit-overflow-scrolling:touch}
+  #mainApp .tt{min-width:760px}
+
+  /* Calendario: celdas pequeñas; los eventos se ven como una rayita de color */
+  #mainApp .calendar-card{padding:12px}
+  #mainApp .calendar-card .calendar-head h3{font-size:16px}
+  #mainApp .calendar-card .calendar-weekdays,#mainApp .calendar-card .calendar-grid{gap:3px}
+  #mainApp .calendar-card .calendar-weekdays div{font-size:10px;padding:4px 0}
+  #mainApp .calendar-card .calendar-day{min-height:50px;padding:4px;border-radius:8px}
+  #mainApp .calendar-card .calendar-number{font-size:12px;margin-bottom:2px}
+  #mainApp .calendar-card .calendar-event{height:5px;padding:0;margin-top:3px;font-size:0;border-radius:3px;background:#5b8def}
+  #mainApp .calendar-card .calendar-event.more{display:none}
+  #mainApp .calendar-card .calendar-details{padding:12px}
+
+  /* Mi perfil */
+  #perfil .profile{max-width:none}
+  #perfil .actions{flex-wrap:wrap}
+  .photo-row{flex-direction:row}
+
+  /* Administración: cada usuario se vuelve una tarjeta */
+  #admin .table-wrap{padding:10px}
+  #admin .table,#admin .table tbody,#admin .table tr,#admin .table td{display:block;width:100%}
+  #admin .table thead{display:none}
+  #admin .table tr{border:1px solid #26304a;border-radius:12px;padding:6px 12px;margin-bottom:10px;background:rgba(255,255,255,.02)}
+  #admin .table td{display:flex;justify-content:space-between;gap:14px;text-align:right;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;word-break:break-word}
+  #admin .table td:last-child{border-bottom:0;justify-content:flex-end;flex-wrap:wrap;gap:6px;padding-top:10px}
+  #admin .table td[data-label]::before{content:attr(data-label);color:#7e8aa5;text-align:left;flex:none}
+
+  /* Ventanas emergentes */
+  .modal{padding:12px;align-items:end}
+  .modal-box{padding:16px;border-radius:14px}
+}
+
+/* ---- Celulares muy angostos ---- */
+@media(max-width:380px){
+  #mainApp .subjects,#mainApp #subjectList{grid-template-columns:1fr}
+  #mainApp .nav button{font-size:18px}
+}
