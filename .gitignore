@@ -1,3 +1,4 @@
    api/conexion.php
    *.sql
    uploads/
+   api/correo_config.php

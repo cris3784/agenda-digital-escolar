@@ -12,7 +12,8 @@ if ($c['rol'] === 'estudiante') {
 
 $accion = (string)($_POST['accion'] ?? '');
 
-if ($accion === 'crear') {
+// Lee y valida los datos de la actividad (los mismos al crear y al editar)
+function leer_actividad($conexion, $c) {
     $titulo  = trim((string)($_POST['titulo'] ?? ''));
     $materia = trim((string)($_POST['materia'] ?? ''));
     $grupo   = trim((string)($_POST['grupo'] ?? ''));
@@ -36,7 +37,7 @@ if ($accion === 'crear') {
     }
 
     if ($c['rol'] === 'profesor' && !profesor_puede($c['asig'], $mat, $grupo)) {
-        fallar('Solo puedes crear actividades de tu materia y de tus grupos.', 403);
+        fallar('Solo puedes usar tu materia y tus grupos.', 403);
     }
 
     if ($fecha === '') {
@@ -55,20 +56,30 @@ if ($accion === 'crear') {
     if (largo($desc) > 5000) {
         fallar('La descripción es demasiado larga.');
     }
+    return [$titulo, $mat, $grupo, $fecha, $hora, $desc];
+}
+
+// ¿Viene un archivo adjunto nuevo? (se valida el tamaño antes de tocar la base de datos)
+function archivo_nuevo() {
+    if (empty($_FILES['archivo']) || $_FILES['archivo']['error'] === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    $f = $_FILES['archivo'];
+    if ($f['error'] !== UPLOAD_ERR_OK) {
+        fallar('No se pudo subir el archivo. Intenta con otro.');
+    }
+    if ($f['size'] > 5 * 1024 * 1024) {
+        fallar('El archivo no puede superar los 5 MB.');
+    }
+    return $f;
+}
+
+if ($accion === 'crear') {
+    list($titulo, $mat, $grupo, $fecha, $hora, $desc) = leer_actividad($conexion, $c);
+    $archivo = archivo_nuevo();
 
     $pro = $c['rol'] === 'profesor' ? $c['codigo'] : null;
     $adm = $c['rol'] === 'admin' ? $c['codigo'] : null;
-
-    $tieneArchivo = !empty($_FILES['archivo']) && $_FILES['archivo']['error'] !== UPLOAD_ERR_NO_FILE;
-    if ($tieneArchivo) {
-        $f = $_FILES['archivo'];
-        if ($f['error'] !== UPLOAD_ERR_OK) {
-            fallar('No se pudo subir el archivo. Intenta con otro.');
-        }
-        if ($f['size'] > 5 * 1024 * 1024) {
-            fallar('El archivo no puede superar los 5 MB.');
-        }
-    }
 
     if (!ejecutar(
         $conexion,
@@ -80,8 +91,8 @@ if ($accion === 'crear') {
     }
     $codigo = $conexion->insert_id;
 
-    if ($tieneArchivo) {
-        $ruta = guardar_archivo_subido($_FILES['archivo']['tmp_name'], 'act_' . $codigo);
+    if ($archivo) {
+        $ruta = guardar_archivo_subido($archivo['tmp_name'], 'act_' . $codigo);
         if (!$ruta) {
             ejecutar($conexion, 'DELETE FROM actividades WHERE act_codigo = ?', 'i', [$codigo]);
             fallar('El servidor no pudo guardar el archivo.', 500);
@@ -90,7 +101,7 @@ if ($accion === 'crear') {
             $conexion,
             'UPDATE actividades SET act_archivo_nombre = ?, act_archivo_ruta = ? WHERE act_codigo = ?',
             'ssi',
-            [nombre_archivo_limpio($_FILES['archivo']['name']), $ruta, $codigo]
+            [nombre_archivo_limpio($archivo['name']), $ruta, $codigo]
         );
     }
 
@@ -107,17 +118,38 @@ if (!puede_gestionar($c, $a)) {
 }
 
 if ($accion === 'editar') {
-    $titulo = trim((string)($_POST['titulo'] ?? ''));
-    $desc   = trim((string)($_POST['desc'] ?? ''));
-    if (largo($titulo) < 1 || largo($titulo) > 150) {
-        fallar('Escribe un título para la actividad (máximo 150 letras).');
-    }
-    if (largo($desc) > 5000) {
-        fallar('La descripción es demasiado larga.');
-    }
-    if (!ejecutar($conexion, 'UPDATE actividades SET act_titulo = ?, act_descripcion = ? WHERE act_codigo = ?', 'ssi', [$titulo, $desc, $codigo])) {
+    list($titulo, $mat, $grupo, $fecha, $hora, $desc) = leer_actividad($conexion, $c);
+    $archivo = archivo_nuevo();
+    $quitar = ($_POST['quitar_archivo'] ?? '') === '1';
+
+    if (!ejecutar(
+        $conexion,
+        'UPDATE actividades SET act_titulo = ?, act_descripcion = ?, act_mat_materia = ?, act_gru_grupo = ?, act_fecha = ?, act_hora = ? WHERE act_codigo = ?',
+        'ssisssi',
+        [$titulo, $desc, $mat, $grupo, $fecha, $hora, $codigo]
+    )) {
         fallar('No se pudo guardar la actividad.', 500);
     }
+
+    $rutaVieja = $a['act_archivo_ruta'] ?? null;
+
+    if ($archivo) {
+        $ruta = guardar_archivo_subido($archivo['tmp_name'], 'act_' . $codigo);
+        if (!$ruta) {
+            fallar('Se guardaron los cambios, pero el servidor no pudo guardar el archivo nuevo.', 500);
+        }
+        ejecutar(
+            $conexion,
+            'UPDATE actividades SET act_archivo_nombre = ?, act_archivo_ruta = ? WHERE act_codigo = ?',
+            'ssi',
+            [nombre_archivo_limpio($archivo['name']), $ruta, $codigo]
+        );
+        borrar_archivo($rutaVieja);
+    } elseif ($quitar && $rutaVieja) {
+        ejecutar($conexion, 'UPDATE actividades SET act_archivo_nombre = NULL, act_archivo_ruta = NULL WHERE act_codigo = ?', 'i', [$codigo]);
+        borrar_archivo($rutaVieja);
+    }
+
     responder(['ok' => true, 'actividad' => actividad_armada($conexion, $c, $codigo)]);
 }
 

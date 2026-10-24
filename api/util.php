@@ -101,7 +101,7 @@ function cargar_usuario($conexion, $rol, $codigo) {
     $extra = $rol === 'estudiante' ? ', est_gru_grupo AS grupo' : '';
     $f = filas(
         $conexion,
-        "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre, {$p}_usuario AS usuario, {$p}_correo AS correo, {$p}_creado AS creado, {$p}_foto AS foto{$extra} FROM {$tabla} WHERE {$p}_codigo = ?",
+        "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre, {$p}_apellidos AS apellidos, {$p}_nacimiento AS nacimiento, {$p}_usuario AS usuario, {$p}_correo AS correo, {$p}_creado AS creado, {$p}_foto AS foto{$extra} FROM {$tabla} WHERE {$p}_codigo = ?",
         'i',
         [$codigo]
     );
@@ -121,7 +121,10 @@ function cargar_usuario($conexion, $rol, $codigo) {
     $u = [
         'id'        => $p . $f['codigo'],
         'codigo'    => (int)$f['codigo'],
-        'name'      => $f['nombre'],
+        'name'      => trim($f['nombre'] . ' ' . $f['apellidos']),
+        'firstName' => $f['nombre'],
+        'lastName'  => (string)$f['apellidos'],
+        'birthdate' => $f['nacimiento'] ? (string)$f['nacimiento'] : '',
         'username'  => $f['usuario'],
         'email'     => $f['correo'],
         'role'      => $rol,
@@ -276,6 +279,25 @@ function guardar_asignaciones($conexion, $profesor, $codMaterias, $grupos) {
     }
     $a->close();
     return true;
+}
+
+// Apellidos (opcional) y fecha de nacimiento (opcional, AAAA-MM-DD). Si algo está mal, avisa y corta.
+function validar_apellidos($apellidos) {
+    if (largo($apellidos) > 100) {
+        fallar('Los apellidos son demasiado largos.');
+    }
+}
+
+function validar_nacimiento($nacimiento) {
+    if ($nacimiento === '') {
+        return null;
+    }
+    $d = DateTime::createFromFormat('Y-m-d', $nacimiento);
+    $ok = $d && $d->format('Y-m-d') === $nacimiento;
+    if (!$ok || $nacimiento > date('Y-m-d') || $nacimiento < '1900-01-01') {
+        fallar('La fecha de nacimiento no es válida.');
+    }
+    return $nacimiento;
 }
 
 // Para el administrador: todas las cuentas

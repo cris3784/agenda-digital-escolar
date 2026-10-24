@@ -7,7 +7,7 @@ $usuario = trim((string)($d['usuario'] ?? ''));
 $clave   = (string)($d['clave'] ?? '');
 
 if ($usuario === '' || $clave === '') {
-    fallar('Ingresa tu usuario y contraseña.');
+    fallar('Ingresa tu usuario o correo y tu contraseña.');
 }
 
 if (($_SESSION['intentos'] ?? 0) >= 8 && time() - ($_SESSION['ultimo_intento'] ?? 0) < 60) {
@@ -19,9 +19,9 @@ foreach (ROLES as $rol => $info) {
     list($tabla, $p) = $info;
     $f = filas(
         $conexion,
-        "SELECT {$p}_codigo AS codigo, {$p}_clave AS clave FROM {$tabla} WHERE {$p}_usuario = ? LIMIT 1",
-        's',
-        [$usuario]
+        "SELECT {$p}_codigo AS codigo, {$p}_clave AS clave FROM {$tabla} WHERE {$p}_usuario = ? OR {$p}_correo = ? LIMIT 1",
+        'ss',
+        [$usuario, $usuario]
     );
     if ($f) {
         $encontrado = $f[0];
@@ -34,7 +34,7 @@ if (!$encontrado || !password_verify($clave, $encontrado['clave'])) {
     $_SESSION['intentos'] = ($_SESSION['intentos'] ?? 0) + 1;
     $_SESSION['ultimo_intento'] = time();
     usleep(500000);
-    fallar('Usuario o contraseña incorrectos.', 401);
+    fallar('Usuario/correo o contraseña incorrectos.', 401);
 }
 
 session_regenerate_id(true);

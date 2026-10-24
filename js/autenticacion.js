@@ -471,7 +471,7 @@ async function doLogin(userId, passId, fail){
   const username = userInput.value.trim();
   const password = passInput.value;
 
-  if(!username || !password) return fail("Ingresa tu usuario y contraseña.");
+  if(!username || !password) return fail("Ingresa tu usuario o correo y tu contraseña.");
 
   loginBusy = true;
   const r = await apiPost("api/login.php", {usuario:username, clave:password});
@@ -611,14 +611,16 @@ async function registerUser(){
   const message = $("registerMessage");
   const say = text => { if(message) message.textContent = text; };
 
-  const fields = ["regName","regRole","regUser","regEmail","regGrade","regPass","regPass2"].map($);
+  const fields = ["regName","regRole","regUser","regEmail","regGrade","regPass","regPass2","regLastName","regBirth"].map($);
   if(fields.some(f => !f)) return say("Faltan campos del formulario de registro.");
 
   // Nombre, usuario y correo se limpian de espacios
-  const [name, role, username, email, grade, pass, pass2] =
-    fields.map((f, i) => (i === 0 || i === 2 || i === 3) ? f.value.trim() : f.value);
+  const [name, role, username, email, grade, pass, pass2, lastName, birth] =
+    fields.map((f, i) => (i === 0 || i === 2 || i === 3 || i === 7) ? f.value.trim() : f.value);
 
   const isTeacher = role === "profesor";
+  if(!lastName) return say("Escribe tus apellidos.");
+  if(birth && birth > new Date().toISOString().slice(0, 10)) return say("La fecha de nacimiento no puede ser futura.");
   if(!name || !role || !username || !email || (!isTeacher && !grade) || !pass || !pass2) return say("Completa todos los campos.");
   if(!isValidEmail(email)) return say("Escribe un correo válido (ej. nombre@gmail.com).");
   if(pass !== pass2) return say("Las contraseñas no coinciden.");
@@ -644,7 +646,7 @@ async function registerUser(){
   registerBusy = true;
 
   const r = await apiPost("api/registro.php", {
-    nombre: name, tipo: role, usuario: username, correo: email, clave: pass,
+    nombre: name, apellidos: lastName, nacimiento: birth, tipo: role, usuario: username, correo: email, clave: pass,
     grupo: isTeacher ? "" : grade, materias: mySubjects, grupos: myGroups
   });
 
@@ -796,23 +798,18 @@ function enterApp(){
   set(".profile-top h2", el => el.textContent = n);
   set(".profile-top .muted", el => el.textContent = "@" + username);
 
-  const inputs = document.querySelectorAll(".profile .field input");
-  if(inputs.length >= 3){
-    inputs[0].value = n;
-    inputs[1].value = username;
-    inputs[2].value = currentUser.grade || "";
-  }
+  if(typeof renderProfile === "function") renderProfile();    // nombre, apellidos, correo, nacimiento y grado
 
   if(typeof applyProfilePhoto === "function") applyProfilePhoto();   // foto de perfil (si tiene)
 
-  set("#profileRole", el => el.value =
+  set("#profileRole", el => el.textContent =
     {profesor:"Profesor", admin:"Administrador"}[currentUser.role] || "Estudiante");
 
   // Materia del profesor en "Mi perfil"
   const isTeacher = currentUser.role === "profesor";
   set("#profileSubjectField", el => el.style.display = isTeacher ? "" : "none");
-  set("#profileSubject", el => el.value = (typeof teacherSubjectsText === "function" ? teacherSubjectsText() : currentUser.subject) || "Sin materia asignada");
-  set("#profileSubjectField label", el => el.textContent = (typeof teacherSubjects === "function" && teacherSubjects().length > 1) ? "Materias" : "Materia");
+  set("#profileSubject", el => el.textContent = (typeof teacherSubjectsText === "function" ? teacherSubjectsText() : currentUser.subject) || "Sin materia asignada");
+  set("#profileSubjectField .pf-label", el => el.textContent = (typeof teacherSubjects === "function" && teacherSubjects().length > 1) ? "Materias" : "Materia");
 
   applyPermissions();
   renderAdminUsers();

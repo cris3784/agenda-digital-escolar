@@ -28,6 +28,8 @@ function ya_existe($conexion, $campo, $valor) {
 
 $d = entrada();
 $nombre   = trim((string)($d['nombre'] ?? ''));
+$apellidos = trim((string)($d['apellidos'] ?? ''));
+$nacim    = trim((string)($d['nacimiento'] ?? ''));
 $tipo     = (string)($d['tipo'] ?? '');
 $usuario  = trim((string)($d['usuario'] ?? ''));
 $correo   = trim((string)($d['correo'] ?? ''));
@@ -39,6 +41,8 @@ $grupos   = lista($d['grupos'] ?? []);
 if (largo($nombre) < 2 || largo($nombre) > 100) {
     fallar('Escribe tu nombre completo.');
 }
+validar_apellidos($apellidos);
+$nacim = validar_nacimiento($nacim);
 if ($tipo !== 'estudiante' && $tipo !== 'profesor') {
     fallar('Elige si eres estudiante o profesor.');
 }
@@ -91,12 +95,12 @@ $conexion->begin_transaction();
 $ok = true;
 
 if ($tipo === 'estudiante') {
-    $s = $conexion->prepare("INSERT INTO estudiantes (est_nombre, est_usuario, est_correo, est_clave, est_gru_grupo) VALUES (?, ?, ?, ?, ?)");
-    $s->bind_param('sssss', $nombre, $usuario, $correo, $hash, $grupo);
+    $s = $conexion->prepare("INSERT INTO estudiantes (est_nombre, est_apellidos, est_nacimiento, est_usuario, est_correo, est_clave, est_gru_grupo) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $s->bind_param('sssssss', $nombre, $apellidos, $nacim, $usuario, $correo, $hash, $grupo);
     $ok = $s->execute();
 } else {
-    $s = $conexion->prepare("INSERT INTO profesores (pro_nombre, pro_usuario, pro_correo, pro_clave) VALUES (?, ?, ?, ?)");
-    $s->bind_param('ssss', $nombre, $usuario, $correo, $hash);
+    $s = $conexion->prepare("INSERT INTO profesores (pro_nombre, pro_apellidos, pro_nacimiento, pro_usuario, pro_correo, pro_clave) VALUES (?, ?, ?, ?, ?, ?)");
+    $s->bind_param('ssssss', $nombre, $apellidos, $nacim, $usuario, $correo, $hash);
     $ok = $s->execute();
 
     if ($ok) {

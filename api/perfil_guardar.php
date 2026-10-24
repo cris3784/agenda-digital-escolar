@@ -7,14 +7,31 @@ $rol = $_SESSION['rol'];
 $codigo = (int)$_SESSION['codigo'];
 list($tabla, $p) = ROLES[$rol];
 
-$nombre = trim((string)($_POST['nombre'] ?? ''));
+$nombre    = trim((string)($_POST['nombre'] ?? ''));
+$tieneApe  = array_key_exists('apellidos', $_POST);
+$apellidos = trim((string)($_POST['apellidos'] ?? ''));
+$tieneNac  = array_key_exists('nacimiento', $_POST);
+$nacim     = validar_nacimiento(trim((string)($_POST['nacimiento'] ?? '')));
 
 if ($nombre !== '') {
     if (largo($nombre) < 2 || largo($nombre) > 100) {
-        fallar('Escribe tu nombre completo.');
+        fallar('Escribe tu nombre.');
     }
     if (!ejecutar($conexion, "UPDATE {$tabla} SET {$p}_nombre = ? WHERE {$p}_codigo = ?", 'si', [$nombre, $codigo])) {
         fallar('No se pudo guardar el nombre.', 500);
+    }
+}
+
+if ($tieneApe) {
+    validar_apellidos($apellidos);
+    if (!ejecutar($conexion, "UPDATE {$tabla} SET {$p}_apellidos = ? WHERE {$p}_codigo = ?", 'si', [$apellidos, $codigo])) {
+        fallar('No se pudieron guardar los apellidos.', 500);
+    }
+}
+
+if ($tieneNac) {
+    if (!ejecutar($conexion, "UPDATE {$tabla} SET {$p}_nacimiento = ? WHERE {$p}_codigo = ?", 'si', [$nacim, $codigo])) {
+        fallar('No se pudo guardar la fecha de nacimiento.', 500);
     }
 }
 

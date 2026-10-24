@@ -261,8 +261,8 @@
           <b>INGRESO</b>
           <span>Agenda Digital Escolar</span>
         </div>
-        <label>Usuario</label>
-        <input id="quickLoginUser" type="text" placeholder="Ingrese su usuario">
+        <label>Usuario o correo</label>
+        <input id="quickLoginUser" type="text" placeholder="Ingrese su usuario o correo">
         <label>Contraseña</label>
         <input id="quickLoginPass" type="password" placeholder="Ingrese su contraseña">
         <button class="quick-login-btn" onclick="quickLogin()">Iniciar sesión</button>
@@ -293,8 +293,8 @@
       <h2>Iniciar sesión</h2>
       <p class="auth-subtitle">Ingresa a tu agenda escolar</p>
       <div class="auth-field">
-        <label>Usuario</label>
-        <input id="loginUser" type="text" placeholder="Ingresa tu usuario">
+        <label>Usuario o correo</label>
+        <input id="loginUser" type="text" placeholder="Ingresa tu usuario o correo">
       </div>
       <div class="auth-field">
         <label>Contraseña</label>
@@ -344,8 +344,16 @@
 
       <div class="reg-grid">
         <div class="auth-field full">
-          <label>Nombre completo</label>
-          <input id="regName" type="text" placeholder="Tu nombre completo">
+          <label>Nombre</label>
+          <input id="regName" type="text" placeholder="Tus nombres" autocomplete="given-name">
+        </div>
+        <div class="auth-field full">
+          <label>Apellidos</label>
+          <input id="regLastName" type="text" placeholder="Tus apellidos" autocomplete="family-name">
+        </div>
+        <div class="auth-field full">
+          <label>Fecha de nacimiento <small style="opacity:.6">(opcional)</small></label>
+          <input id="regBirth" type="date">
         </div>
         <div class="auth-field">
           <label>Tipo de usuario</label>
@@ -532,30 +540,77 @@
               <p class="muted">@admin</p>
             </div>
           </div>
-          <div class="form-grid">
-            <div class="field">
-              <label>Nombre</label>
-              <input>
+
+          <div class="pf-list">
+            <div class="pf-row">
+              <div class="pf-label">Usuario</div>
+              <div class="pf-value"><span id="pfUser">@admin</span></div>
             </div>
-            <div class="field">
-              <label>Usuario</label>
-              <input disabled>
+
+            <div class="pf-row">
+              <div class="pf-label">Nombre</div>
+              <div class="pf-value pf-stack">
+                <input id="pfFirst" type="text" maxlength="100" placeholder="Tus nombres" autocomplete="given-name">
+                <input id="pfLast" type="text" maxlength="100" placeholder="Tus apellidos" autocomplete="family-name">
+              </div>
             </div>
-            <div class="field">
-              <label>Grado</label>
-              <input>
+
+            <div class="pf-row">
+              <div class="pf-label">Correo</div>
+              <div class="pf-value">
+                <span id="pfEmail" class="pf-grow">-</span>
+                <button type="button" class="pf-verify" id="pfVerifyBtn">Verificar</button>
+              </div>
             </div>
-            <div class="field">
-              <label>Rol</label>
-              <input id="profileRole" disabled>
+
+            <div class="pf-row">
+              <div class="pf-label">Contraseña</div>
+              <div class="pf-value">
+                <span class="pf-grow pf-dots">••••••••••</span>
+                <button type="button" class="pf-edit" id="pfPwdBtn" title="Cambiar contraseña" aria-label="Cambiar contraseña">✎</button>
+              </div>
             </div>
-            <div class="field" id="profileSubjectField" style="display:none">
-              <label>Materia</label>
-              <input id="profileSubject" disabled>
+
+            <div class="pf-row">
+              <div class="pf-label">Fecha de nacimiento</div>
+              <div class="pf-value"><input id="pfBirth" type="date"></div>
+            </div>
+
+            <div class="pf-row" id="pfGradeRow">
+              <div class="pf-label">Grado</div>
+              <div class="pf-value"><span id="pfGrade">-</span></div>
+            </div>
+
+            <div class="pf-row">
+              <div class="pf-label">Rol</div>
+              <div class="pf-value"><span id="profileRole">-</span></div>
+            </div>
+
+            <div class="pf-row" id="profileSubjectField" style="display:none">
+              <div class="pf-label">Materia</div>
+              <div class="pf-value"><span id="profileSubject">-</span></div>
             </div>
           </div>
+
           <div class="actions">
             <button class="btn">Guardar cambios</button>
+          </div>
+        </div>
+
+        <div class="modal" id="pwdModal">
+          <div class="modal-box pwd-modal">
+            <div class="modal-head">
+              <h3>Cambio de contraseña</h3>
+              <button type="button" class="pwd-x" id="pwdClose" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="pwd-grid">
+              <div class="field"><label>Contraseña actual</label><input id="pwdOld" type="password" autocomplete="current-password"></div>
+              <div class="field"><label>Nueva contraseña</label><input id="pwdNew" type="password" autocomplete="new-password"></div>
+              <div class="field"><label>Confirmar contraseña</label><input id="pwdNew2" type="password" autocomplete="new-password"></div>
+            </div>
+            <p class="pwd-hint">Mínimo 6 caracteres.</p>
+            <p class="pwd-msg" id="pwdMsg"></p>
+            <button type="button" class="btn pwd-submit" id="pwdSaveBtn">Actualizar</button>
           </div>
         </div>
       </section>

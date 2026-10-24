@@ -1,7 +1,4 @@
 <?php
-// COPIA DE EJEMPLO para GitHub.
-// Para usar el proyecto: copia este archivo como "conexion.php" y pon tus datos reales.
-// El archivo real "conexion.php" NO se sube a GitHub (está en .gitignore).
 $esLocal = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1']);
 
 if ($esLocal) {
@@ -10,10 +7,10 @@ if ($esLocal) {
     $clave   = '';
     $base    = 'ade';
 } else {
-    $host    = 'sql000.ejemplo.com';
-    $usuario = 'usuario_bd';
-    $clave   = 'contraseña';
-    $base    = 'nombre_bd';
+    $host    = 'sql302.infinityfree.com';
+    $usuario = 'if0_43229914';
+    $clave   = 'R6mg0AqRMMfmHM';
+    $base    = 'if0_43229914_ade';
 }
 
 mysqli_report(MYSQLI_REPORT_OFF);
