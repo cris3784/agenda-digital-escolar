@@ -5,118 +5,43 @@
    El descanso se dibuja como una franja centrada en todos los días.
    ========================================================= */
 
-const DEFAULT_SCHEDULE = [
-  {day:"Lunes", classes:[
-    {subject:"TEC E INF",time:"6:00 - 7:45",room:"116 TS"},
-    {subject:"QUIMICA",time:"7:45 - 10:00",room:"116 TS"},
-    {subject:"INGLES",time:"10:00 - 11:45",room:"116 TS"}
-  ]},
-  {day:"Martes", classes:[
-    {subject:"FISICA",time:"6:00 - 7:45",room:"116 TS"},
-    {subject:"MATEMATICAS",time:"7:45 - 10:00",room:"116 TS"},
-    {subject:"LENG CASTELLANA",time:"10:00 - 11:45",room:"116 TS"}
-  ]},
-  {day:"Miércoles", classes:[
-    {subject:"FILOSOFIA",time:"6:00 - 7:45",room:"116 TS"},
-    {subject:"FISICA",time:"7:45 - 9:07",room:"116 TS"},
-    {subject:"LENG CASTELLANA",time:"9:07 - 10:52",room:"116 TS"},
-    {subject:"EDUC RELIGIOSA",time:"10:52 - 11:45",room:"116 TS"}
-  ]},
-  {day:"Jueves", classes:[
-    {subject:"ED FISICA 11 TS",time:"6:00 - 7:45",room:"116 TS"},
-    {subject:"EDUC ARTISTICA",time:"7:45 - 9:07",room:"116 TS"},
-    {subject:"ET Y VAL HUMANOS",time:"9:07 - 10:00",room:"116 TS"},
-    {subject:"MATEMATICAS",time:"10:00 - 11:45",room:"116 TS"}
-  ]},
-  {day:"Viernes", classes:[
-    {subject:"QUIMICA",time:"6:00 - 6:52",room:"116 TS"},
-    {subject:"INGLES",time:"6:52 - 7:45",room:"116 TS"},
-    {subject:"SOC_CAT_PAZ",time:"7:45 - 10:00",room:"116 TS"},
-    {subject:"EMPRENDIMIENTO",time:"10:00 - 10:52",room:"116 TS"},
-    {subject:"CIEN ECON Y POL",time:"10:52 - 11:45",room:"116 TS"}
-  ]}
-];
+// Los horarios viven en la base de datos (api/horarios.php): una lista de clases por grupo.
+// "schedule" es el horario que se está mostrando ahora (el de un grupo, o las clases del profesor).
+let schedule = [];
 
-const SCHEDULE_STORAGE_KEY = "ade_schedule_v2";
-let schedule = JSON.parse(localStorage.getItem(SCHEDULE_STORAGE_KEY) || "null");
-if(!Array.isArray(schedule) || !schedule.length){
-  schedule = JSON.parse(JSON.stringify(DEFAULT_SCHEDULE));
-  localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(schedule));
-}
+/* ---------- Un horario por grupo (viene del servidor) ---------- */
 
-/* ---------- Un horario por grupo (lo crea datos-prueba.js) ---------- */
-
-const GROUP_SCHEDULES_KEY = "ade_schedules_v3";
 let groupSchedules = {};
-
-// Lee los horarios guardados (uno distinto por grupo: 6-1, 6-2 ... 11-9).
-// Se vuelve a leer en cada dibujo, así siempre están al día aunque los datos de prueba
-// se hayan creado después de cargar este archivo. Si no hay ninguno, se generan.
-// Caché: el texto guardado (54 grupos) solo se vuelve a convertir si cambió. Antes se leía y
-// convertía completo en CADA dibujo de cualquier página.
-let ttGroupRawCache = null, ttGroupValidCache = null;
-
-function ttLoadGroupSchedules(){
-
-  let rawText = "{}";
-  try{ rawText = localStorage.getItem(GROUP_SCHEDULES_KEY) || "{}"; }catch(e){}
-
-  if(ttGroupValidCache && rawText === ttGroupRawCache){
-    groupSchedules = ttGroupValidCache;
-    return;
-  }
-
-  let raw = {};
-  try{ raw = JSON.parse(rawText) || {}; }catch(e){ raw = {}; }
-
-  const valid = {};
-  Object.keys(raw).forEach(g => {
-    const ok = Array.isArray(raw[g]) && raw[g].every(d => d && typeof d.day === "string" && Array.isArray(d.classes));
-    if(ok) valid[g] = raw[g];
-  });
-
-  let generated = false;
-  if(!Object.keys(valid).length && window.ADE_CURRICULUM && typeof ADE_CURRICULUM.build === "function"){
-    try{
-      const made = ADE_CURRICULUM.build().schedules || {};
-      Object.keys(made).forEach(g => { valid[g] = made[g]; });
-      localStorage.setItem(GROUP_SCHEDULES_KEY, JSON.stringify(valid));
-      generated = true;
-    }catch(e){}
-  }
-
-  groupSchedules = valid;
-  // si se acaban de generar, la próxima lectura vuelve a comprobar el texto guardado
-  ttGroupRawCache = generated ? null : rawText;
-  ttGroupValidCache = generated ? null : valid;
-}
-
-ttLoadGroupSchedules();
-
 let scheduleGroup = "";           // grupo que está viendo/editando el administrador
 let scheduleMode = "legacy";      // "group" | "teacher" | "legacy"
 
-function saveSchedule(){
-  if(scheduleMode === "group" && scheduleGroup && getRole() === "admin"){
-    groupSchedules[scheduleGroup] = schedule;
-    localStorage.setItem(GROUP_SCHEDULES_KEY, JSON.stringify(groupSchedules));
-    return;
+async function cargarHorariosServidor(){
+  try{
+    const resp = await fetch("api/horarios.php", {credentials:"same-origin", cache:"no-store"});
+    const d = await resp.json();
+    if(!d || !d.ok || !d.horarios || typeof d.horarios !== "object") return false;
+    groupSchedules = d.horarios;
+    return true;
+  }catch(e){
+    return false;
   }
-  localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(schedule));
+}
+
+// Vuelve a pedir los horarios y redibuja la pantalla
+async function recargarHorarios(){
+  const ok = await cargarHorariosServidor();
+  if(ok && typeof currentUser !== "undefined" && currentUser && typeof render === "function") render();
+  return ok;
 }
 
 // Elige el horario que le toca a la cuenta que inició sesión:
 //  estudiante = el de su grupo · profesor = sus clases de todos sus grupos · admin = el grupo que elija
 function ttPrepare(){
 
-  // Si el administrador está editando un grupo, no se pisan sus cambios al releer
-  if(!(scheduleMode === "group" && getRole() === "admin" && scheduleGroup && groupSchedules[scheduleGroup] === schedule)){
-    ttLoadGroupSchedules();
-  }
-
   const role = getRole();
   const groups = Object.keys(groupSchedules);
   scheduleMode = "legacy";
+  schedule = [];
 
   if(!groups.length) return;
 
@@ -127,12 +52,13 @@ function ttPrepare(){
   }
 
   if(role === "profesor"){
-    if(!currentUser || !teacherGroups()) return;          // cuenta antigua: se filtra por materia
+    if(!currentUser) return;
     const mine = currentUser.username;
     const mySubs = teacherSubjects();
+    const myGroups = teacherGroups() || groups;            // sin grupos fijos = todos los que el servidor mandó
     schedule = ["Lunes","Martes","Miércoles","Jueves","Viernes"].map(function(day){
       const classes = [];
-      teacherGroups().forEach(function(g){
+      myGroups.forEach(function(g){
         const d = (groupSchedules[g] || []).find(function(x){ return x.day === day; });
         if(d) d.classes.forEach(function(c){
           // clases que tiene asignadas, o de cualquiera de sus materias en ese grupo
@@ -845,61 +771,84 @@ function ttNotifyChange(what){
   });
 }
 
-function addScheduleItem(di){
-  if(!requirePermission("create","horario")) return;
-  const subject = prompt("Materia:", subjects[0] || "");
-  if(subject === null) return;
-  const time = prompt("Hora (ej. 6:00 - 7:45):", "");
-  if(time === null) return;
-  const room = prompt("Salón / lugar:", "");
-  if(room === null) return;
-  schedule[di].classes.push({subject:subject.trim(),time:time.trim(),room:room.trim()});
-  saveSchedule();
-  renderSchedule();
-  ttNotifyChange("Se agregó " + subject.trim() + " el " + schedule[di].day + " (" + time.trim() + ").");
+let horarioBusy = false;
+
+// Convierte lo escrito (acepta los nombres cortos del horario) a una materia de la lista
+function ttResolveSubject(text){
+  const n = ttNorm(ttSubjectName(text));
+  if(!n) return null;
+  return subjects.find(function(s){ return ttNorm(s) === n; }) || null;
 }
 
-function editScheduleItem(di,ci){
+function ttToHHMM(min){
+  return String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
+}
+
+// Guarda un cambio en el servidor y vuelve a pedir los horarios. Devuelve true si salió bien.
+async function guardarHorario(datos){
+  if(horarioBusy) return false;
+  horarioBusy = true;
+  const r = await apiPost("api/horario_guardar.php", datos);
+  horarioBusy = false;
+  if(!r.ok){ alert(r.error || "No se pudo guardar el horario."); return false; }
+  await recargarHorarios();
+  return true;
+}
+
+// Pide materia, hora y salón. Devuelve los datos listos para enviar, o null si se canceló o hay un error.
+function ttAskClass(c){
+  const subject = prompt("Materia:", c ? c.subject : (subjects[0] || ""));
+  if(subject === null) return null;
+  const materia = ttResolveSubject(subject);
+  if(!materia){ alert("Esa materia no existe. Escribe una de la lista de Materias."); return null; }
+
+  const time = prompt("Hora (ej. 6:00 - 7:45):", c ? c.time : "");
+  if(time === null) return null;
+  const t = ttParseTime(time);
+  if(!t){ alert("Escribe la hora así: 6:00 - 7:45"); return null; }
+
+  const room = prompt("Salón / lugar:", c ? c.room : "");
+  if(room === null) return null;
+  if(room.trim().length > 20){ alert("El salón puede tener máximo 20 letras."); return null; }
+
+  return {materia:materia, inicio:ttToHHMM(t.start), fin:ttToHHMM(t.end), salon:room.trim(), hora:time.trim()};
+}
+
+async function addScheduleItem(di){
+  if(!requirePermission("create","horario")) return;
+  if(scheduleMode !== "group" || !scheduleGroup) return;
+  const q = ttAskClass(null);
+  if(!q) return;
+  const day = schedule[di].day;
+  const ok = await guardarHorario({accion:"agregar", grupo:scheduleGroup, dia:day, materia:q.materia, inicio:q.inicio, fin:q.fin, salon:q.salon});
+  if(ok) ttNotifyChange("Se agregó " + q.materia + " el " + day + " (" + q.hora + ").");
+}
+
+async function editScheduleItem(di,ci){
   if(!requirePermission("edit","horario")) return;
-  const c=schedule[di].classes[ci];
-  const subject=prompt("Materia:",c.subject); if(subject===null)return;
-  const time=prompt("Hora (ej. 6:00 - 7:45):",c.time); if(time===null)return;
-  const room=prompt("Salón / lugar:",c.room); if(room===null)return;
-  c.subject=subject.trim(); c.time=time.trim(); c.room=room.trim();
-  saveSchedule(); renderSchedule();
-  ttNotifyChange("Cambió " + c.subject + " el " + schedule[di].day + " (" + c.time + ").");
+  const c = schedule[di].classes[ci];
+  if(!c || !c.id) return;
+  const q = ttAskClass(c);
+  if(!q) return;
+  const day = schedule[di].day;
+  const ok = await guardarHorario({accion:"editar", codigo:c.id, materia:q.materia, inicio:q.inicio, fin:q.fin, salon:q.salon});
+  if(ok) ttNotifyChange("Cambió " + q.materia + " el " + day + " (" + q.hora + ").");
 }
 
-function deleteScheduleItem(di,ci){
+async function deleteScheduleItem(di,ci){
   if(!requirePermission("delete","horario")) return;
+  const c = schedule[di].classes[ci];
+  if(!c || !c.id) return;
   if(!confirm("¿Seguro que deseas borrar esta clase?")) return;
-  const removed = schedule[di].classes.splice(ci,1)[0];
-  saveSchedule(); renderSchedule();
-  ttNotifyChange("Se quitó " + (removed ? removed.subject : "una clase") + " del " + schedule[di].day + ".");
+  const day = schedule[di].day;
+  const ok = await guardarHorario({accion:"borrar", codigo:c.id});
+  if(ok) ttNotifyChange("Se quitó " + c.subject + " del " + day + ".");
 }
 
-function addScheduleDay(){
-  if(!requirePermission("create","horario")) return;
-  const day=prompt("Nombre del día:");
-  if(day===null || !day.trim()) return;
-  schedule.push({day:day.trim(),classes:[]});
-  saveSchedule(); renderSchedule();
-}
-
-function editScheduleDay(di){
-  if(!requirePermission("edit","horario") || getRole()!=="admin") return;
-  const day=prompt("Nombre del día:",schedule[di].day);
-  if(day===null || !day.trim()) return;
-  schedule[di].day=day.trim();
-  saveSchedule(); renderSchedule();
-}
-
-function deleteScheduleDay(di){
-  if(!requirePermission("delete","horario") || getRole()!=="admin") return;
-  if(!confirm("¿Seguro que deseas borrar este día y todas sus clases?")) return;
-  schedule.splice(di,1);
-  saveSchedule(); renderSchedule();
-}
+// El horario usa siempre los días de lunes a viernes (los botones de días no se muestran)
+function addScheduleDay(){ alert("El horario usa los días de lunes a viernes."); }
+function editScheduleDay(){ addScheduleDay(); }
+function deleteScheduleDay(){ addScheduleDay(); }
 
 
 // Actualiza "En curso" y "HOY" cada minuto (solo si el horario está a la vista)
