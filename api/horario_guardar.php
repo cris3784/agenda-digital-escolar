@@ -15,6 +15,13 @@ function hora_valida($t) {
     return str_pad($m[1], 2, '0', STR_PAD_LEFT) . ':' . $m[2] . ':00';
 }
 
+// Solo días de la semana (con o sin tilde, sin importar mayúsculas)
+function dia_valido($dia) {
+    $quitar = ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u'];
+    $n = strtolower(strtr(trim($dia), $quitar));
+    return in_array($n, ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'], true);
+}
+
 function profesor_de($conexion, $materia, $grupo) {
     $p = filas(
         $conexion,
@@ -51,7 +58,7 @@ if ($accion === 'agregar') {
     if (!filas($conexion, 'SELECT gru_codigo FROM grupos WHERE gru_codigo = ?', 's', [$grupo])) {
         fallar('Ese grupo no existe.');
     }
-    if ($dia === '' || largo($dia) > 10) {
+    if (!dia_valido($dia)) {
         fallar('El día no es válido.');
     }
     list($mat, $ini, $fin, $salon) = datos_de_clase($conexion, $d);

@@ -60,9 +60,18 @@ if ($paso === 'verificar') {
     $v = verificar_codigo($conexion, $correo, 'recuperar', $d['codigo'] ?? '');
 
     $datos = $v['datos'];
+    if (is_array($datos) && isset(ROLES[(string)($datos['rol'] ?? '')])) {
+        // escribir el código que llegó al correo demuestra que el correo es suyo
+        list($tablaR, $pR) = ROLES[$datos['rol']];
+        ejecutar($conexion, "UPDATE {$tablaR} SET {$pR}_correo_verificado = 1 WHERE {$pR}_codigo = ?", 'i', [(int)($datos['codigo'] ?? 0)]);
+    }
     $usuario = is_array($datos) ? cargar_usuario($conexion, (string)($datos['rol'] ?? ''), (int)($datos['codigo'] ?? 0)) : null;
     if (!$usuario) {
         fallar('No se encontró la cuenta.', 404);
+    }
+    if (!cuenta_activa($usuario)) {
+        borrar_codigos($conexion, $correo, 'recuperar');
+        fallar('Tu cuenta de profesor aún no ha sido aprobada por un administrador.', 403);
     }
 
     session_regenerate_id(true);

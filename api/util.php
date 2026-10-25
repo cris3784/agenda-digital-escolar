@@ -120,98 +120,141 @@ function hijos_de_acudiente($conexion, $correo, $gradoElegido = '') {
     return array_merge($primeros, $otros);
 }
 
-function cargar_usuario($conexion, $rol, $codigo) {
+// Carga cuentas de un rol con UNA sola consulta (más las asignaciones de los profesores en otra).
+// $publico = true  -> versión para los demás: sin fecha de nacimiento, sin correos.
+// $publico = false -> versión completa (la propia persona o el administrador).
+function cargar_lista($conexion, $rol, $donde = '', $tipos = '', $params = [], $publico = false) {
     if (!isset(ROLES[$rol])) {
-        return null;
+        return [];
     }
     list($tabla, $p) = ROLES[$rol];
 
-    $extra = $rol === 'estudiante' ? ', est_gru_grupo AS grupo' : ($rol === 'acudiente' ? ', acu_gru_grupo AS grupo' : '');
+    $extra = '';
+    if ($rol === 'estudiante') {
+        $extra = ', est_gru_grupo AS grupo, est_acu_correo AS acu_correo, est_acu_verificado AS acu_ver';
+    } elseif ($rol === 'acudiente') {
+        $extra = ', acu_gru_grupo AS grupo';
+    } elseif ($rol === 'profesor') {
+        $extra = ', pro_estado AS estado';
+    }
+
     $f = filas(
         $conexion,
-        "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre, {$p}_apellidos AS apellidos, {$p}_nacimiento AS nacimiento, {$p}_usuario AS usuario, {$p}_correo AS correo, {$p}_creado AS creado, {$p}_foto AS foto{$extra} FROM {$tabla} WHERE {$p}_codigo = ?",
-        'i',
-        [$codigo]
+        "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre, {$p}_apellidos AS apellidos, {$p}_nacimiento AS nacimiento, {$p}_usuario AS usuario, {$p}_correo AS correo, {$p}_creado AS creado, {$p}_foto AS foto, {$p}_correo_verificado AS verificado{$extra} FROM {$tabla} {$donde} ORDER BY {$p}_codigo",
+        $tipos,
+        $params
     );
     if (!$f) {
-        return null;
-    }
-    $f = $f[0];
-
-    $foto = '';
-    if (!empty($f['foto'])) {
-        $archivoFoto = dirname(__DIR__) . '/' . $f['foto'];
-        if (is_file($archivoFoto)) {
-            $foto = 'api/foto.php?u=' . $p . $f['codigo'] . '&v=' . filemtime($archivoFoto);
-        }
+        return [];
     }
 
-    $u = [
-        'id'        => $p . $f['codigo'],
-        'codigo'    => (int)$f['codigo'],
-        'name'      => trim($f['nombre'] . ' ' . $f['apellidos']),
-        'firstName' => $f['nombre'],
-        'lastName'  => (string)$f['apellidos'],
-        'birthdate' => $f['nacimiento'] ? (string)$f['nacimiento'] : '',
-        'username'  => $f['usuario'],
-        'email'     => $f['correo'],
-        'role'      => $rol,
-        'grade'     => '',
-        'photo'     => $foto,
-        'createdAt' => date('d/m/Y, g:i:s a', strtotime($f['creado']))
-    ];
-
-    if ($rol === 'estudiante') {
-        $u['grade'] = $f['grupo'];
-
-        // Correo del acudiente (se lee aparte: si falta la columna, el ingreso no se rompe)
-        $g = filas($conexion, 'SELECT est_acu_correo AS correo, est_acu_verificado AS ver FROM estudiantes WHERE est_codigo = ?', 'i', [$codigo]);
-        $u['guardianEmail']    = ($g && $g[0]['correo'] !== null) ? (string)$g[0]['correo'] : '';
-        $u['guardianVerified'] = $g ? !empty($g[0]['ver']) : false;
-    }
-
-    if ($rol === 'acudiente') {
-        // Solo queda validado cuando un estudiante escribió su correo y lo verificó con el código
-        $hijos = hijos_de_acudiente($conexion, (string)$f['correo'], (string)$f['grupo']);
-        $u['pendingGrade'] = (string)$f['grupo'];
-        $u['validated']    = count($hijos) > 0;
-        $u['children']     = $hijos;
-        $u['grade']        = $hijos ? $hijos[0]['grade'] : '';
-        $grupos = [];
-        foreach ($hijos as $h) {
-            if (!in_array($h['grade'], $grupos, true)) {
-                $grupos[] = $h['grade'];
-            }
-        }
-        $u['groups'] = $grupos;
-    }
-
+    // Asignaciones de todos los profesores de la lista en una sola consulta
+    $porProfesor = [];
     if ($rol === 'profesor') {
+        $codigos = array_map(function ($x) { return (int)$x['codigo']; }, $f);
+        $marcas = implode(',', array_fill(0, count($codigos), '?'));
         $as = filas(
             $conexion,
-            'SELECT m.mat_nombre AS materia, a.asi_gru_grupo AS grupo FROM asignaciones a JOIN materias m ON m.mat_codigo = a.asi_mat_materia WHERE a.asi_pro_profesor = ? ORDER BY a.asi_codigo',
-            'i',
-            [$codigo]
+            "SELECT a.asi_pro_profesor AS pro, m.mat_nombre AS materia, a.asi_gru_grupo AS grupo FROM asignaciones a JOIN materias m ON m.mat_codigo = a.asi_mat_materia WHERE a.asi_pro_profesor IN ($marcas) ORDER BY a.asi_codigo",
+            str_repeat('i', count($codigos)),
+            $codigos
         );
-        $materias = [];
-        $grupos = [];
         foreach ($as as $a) {
-            if (!in_array($a['materia'], $materias, true)) {
-                $materias[] = $a['materia'];
-            }
-            if ($a['grupo'] !== null && !in_array($a['grupo'], $grupos, true)) {
-                $grupos[] = $a['grupo'];
-            }
-        }
-        $u['subject']  = $materias[0] ?? '';
-        $u['subjects'] = $materias;
-        if ($grupos) {
-            $u['groups'] = $grupos;
-            $u['grade']  = $grupos[0];
+            $porProfesor[(int)$a['pro']][] = $a;
         }
     }
 
-    return $u;
+    $salida = [];
+    foreach ($f as $x) {
+        $foto = '';
+        if (!empty($x['foto'])) {
+            $archivoFoto = dirname(__DIR__) . '/' . $x['foto'];
+            if (is_file($archivoFoto)) {
+                $foto = 'api/foto.php?u=' . $p . $x['codigo'] . '&v=' . filemtime($archivoFoto);
+            }
+        }
+
+        $u = [
+            'id'        => $p . $x['codigo'],
+            'codigo'    => (int)$x['codigo'],
+            'name'      => trim($x['nombre'] . ' ' . $x['apellidos']),
+            'firstName' => $x['nombre'],
+            'lastName'  => (string)$x['apellidos'],
+            'birthdate' => ($publico || !$x['nacimiento']) ? '' : (string)$x['nacimiento'],
+            'username'  => $x['usuario'],
+            'email'     => $publico ? '' : $x['correo'],
+            'role'      => $rol,
+            'grade'     => '',
+            'photo'     => $foto,
+            'createdAt' => date('d/m/Y, g:i:s a', strtotime($x['creado']))
+        ];
+
+        if (!$publico) {
+            $u['emailVerified'] = !empty($x['verificado']);
+        }
+
+        if ($rol === 'estudiante') {
+            $u['grade'] = $x['grupo'];
+            if (!$publico) {
+                $u['guardianEmail']    = $x['acu_correo'] !== null ? (string)$x['acu_correo'] : '';
+                $u['guardianVerified'] = !empty($x['acu_ver']);
+            }
+        }
+
+        if ($rol === 'acudiente') {
+            // Solo queda validado cuando un estudiante escribió su correo y lo verificó con el código
+            $hijos = hijos_de_acudiente($conexion, (string)$x['correo'], (string)$x['grupo']);
+            $u['pendingGrade'] = (string)$x['grupo'];
+            $u['validated']    = count($hijos) > 0;
+            $u['children']     = $hijos;
+            $u['grade']        = $hijos ? $hijos[0]['grade'] : '';
+            $grupos = [];
+            foreach ($hijos as $h) {
+                if (!in_array($h['grade'], $grupos, true)) {
+                    $grupos[] = $h['grade'];
+                }
+            }
+            $u['groups'] = $grupos;
+        }
+
+        if ($rol === 'profesor') {
+            $u['estado'] = $x['estado'];
+            $materias = [];
+            $grupos = [];
+            foreach (($porProfesor[(int)$x['codigo']] ?? []) as $a) {
+                if (!in_array($a['materia'], $materias, true)) {
+                    $materias[] = $a['materia'];
+                }
+                if ($a['grupo'] !== null && !in_array($a['grupo'], $grupos, true)) {
+                    $grupos[] = $a['grupo'];
+                }
+            }
+            $u['subject']  = $materias[0] ?? '';
+            $u['subjects'] = $materias;
+            if ($grupos) {
+                $u['groups'] = $grupos;
+                $u['grade']  = $grupos[0];
+            }
+        }
+
+        $salida[] = $u;
+    }
+    return $salida;
+}
+
+// Una sola cuenta. Por defecto devuelve la versión completa: úsala solo para la propia persona o el admin.
+function cargar_usuario($conexion, $rol, $codigo, $publico = false) {
+    if (!isset(ROLES[$rol])) {
+        return null;
+    }
+    $p = ROLES[$rol][1];
+    $l = cargar_lista($conexion, $rol, "WHERE {$p}_codigo = ?", 'i', [(int)$codigo], $publico);
+    return $l ? $l[0] : null;
+}
+
+// Un profesor solo puede usar el sistema si el administrador ya lo aprobó
+function cuenta_activa($u) {
+    return $u && ($u['role'] !== 'profesor' || ($u['estado'] ?? '') === 'aprobado');
 }
 
 
@@ -349,60 +392,35 @@ function validar_nacimiento($nacimiento) {
     return $nacimiento;
 }
 
-// Para el administrador: todas las cuentas
+// Para el administrador: todas las cuentas (versión completa), 4 consultas en total
 function listar_todos($conexion) {
     $salida = [];
     foreach (ROLES as $rol => $info) {
-        list($tabla, $p) = $info;
-        $f = filas($conexion, "SELECT {$p}_codigo AS codigo FROM {$tabla} ORDER BY {$p}_codigo");
-        foreach ($f as $fila) {
-            $u = cargar_usuario($conexion, $rol, (int)$fila['codigo']);
-            if ($u) {
-                $salida[] = $u;
-            }
+        foreach (cargar_lista($conexion, $rol) as $u) {
+            $salida[] = $u;
         }
     }
     return $salida;
 }
 
-// Para un profesor: los estudiantes de los grupos que atiende (sin grupos = todos)
+// Para un profesor: los estudiantes de los grupos que atiende (sin grupos = todos), versión pública
 function listar_estudiantes_de_profesor($conexion, $yo) {
     $grupos = isset($yo['groups']) ? $yo['groups'] : [];
     if ($grupos) {
         $marcas = implode(',', array_fill(0, count($grupos), '?'));
-        $f = filas(
-            $conexion,
-            "SELECT est_codigo AS codigo FROM estudiantes WHERE est_gru_grupo IN ($marcas) ORDER BY est_codigo",
-            str_repeat('s', count($grupos)),
-            $grupos
-        );
-    } else {
-        $f = filas($conexion, 'SELECT est_codigo AS codigo FROM estudiantes ORDER BY est_codigo');
+        return cargar_lista($conexion, 'estudiante', "WHERE est_gru_grupo IN ($marcas)", str_repeat('s', count($grupos)), $grupos, true);
     }
-    $salida = [];
-    foreach ($f as $fila) {
-        $u = cargar_usuario($conexion, 'estudiante', (int)$fila['codigo']);
-        if ($u) {
-            $salida[] = $u;
-        }
-    }
-    return $salida;
+    return cargar_lista($conexion, 'estudiante', '', '', [], true);
 }
 
-// Para un estudiante: los profesores que atienden su grupo
+// Para un estudiante: los profesores APROBADOS que atienden su grupo, versión pública
 function listar_profesores_de_grupo($conexion, $grupo) {
-    $f = filas(
+    return cargar_lista(
         $conexion,
-        'SELECT DISTINCT asi_pro_profesor AS codigo FROM asignaciones WHERE asi_gru_grupo = ? OR asi_gru_grupo IS NULL',
+        'profesor',
+        "WHERE pro_estado = 'aprobado' AND pro_codigo IN (SELECT asi_pro_profesor FROM asignaciones WHERE asi_gru_grupo = ? OR asi_gru_grupo IS NULL)",
         's',
-        [$grupo]
+        [$grupo],
+        true
     );
-    $salida = [];
-    foreach ($f as $fila) {
-        $u = cargar_usuario($conexion, 'profesor', (int)$fila['codigo']);
-        if ($u) {
-            $salida[] = $u;
-        }
-    }
-    return $salida;
 }

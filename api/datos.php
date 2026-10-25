@@ -5,8 +5,10 @@ exigir_sesion();
 $rol = $_SESSION['rol'];
 $codigo = (int)$_SESSION['codigo'];
 
+// Cada persona recibe SU cuenta completa; las de los demás llegan en versión pública
+// (sin fecha de nacimiento ni correos). Solo el administrador recibe todo.
 $yo = cargar_usuario($conexion, $rol, $codigo);
-if (!$yo) {
+if (!$yo || !cuenta_activa($yo)) {
     $_SESSION = [];
     session_destroy();
     fallar('Tu sesión ya no es válida.', 401);

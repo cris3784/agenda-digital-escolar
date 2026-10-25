@@ -59,45 +59,57 @@ function enviar_correo($para, $nombre, $asunto, $html) {
 }
 
 
-/* ---------- Diseño del correo (verde y azul oscuro, como la página) ---------- */
+/* ---------- Diseño del correo (azul, como la página) ----------
+   Sin imagen: el hosting gratis muestra una página de seguridad a Gmail y el logo no cargaba.
+   El logo se dibuja con texto, así se ve igual en todos los correos. */
 
 function plantilla_codigo($titulo, $nombre, $texto, $codigo) {
     $t = htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8');
     $n = htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8');
     $x = htmlspecialchars($texto, ENT_QUOTES, 'UTF-8');
     $c = htmlspecialchars($codigo, ENT_QUOTES, 'UTF-8');
-    $logo = SITIO_URL . '/img/logo-ade.png';
     $min = (int)(CODIGO_VIDA / 60);
 
-    return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
-    . '<body style="margin:0;padding:0;background:#eef2f1;font-family:Arial,Helvetica,sans-serif;">'
-    . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f1;padding:28px 12px;"><tr><td align="center">'
-    . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:18px;overflow:hidden;">'
+    return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    . '<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"></head>'
+    . '<body style="margin:0;padding:0;background:#061a38;">'
+    . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#061a38" style="background:#061a38;background-image:linear-gradient(160deg,#0b3470 0%,#061a38 55%,#030d1f 100%);padding:34px 12px;"><tr><td align="center">'
+    . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0c2347" style="max-width:520px;background:#0c2347;border:1px solid #1f4378;border-radius:22px;overflow:hidden;">'
 
-    . '<tr><td align="center" style="background:#0b2a4a;padding:26px 20px 22px;border-bottom:4px solid #23a05a;">'
-    . '<img src="' . $logo . '" alt="A.D.E." width="110" style="display:block;margin:0 auto 10px;border:0;">'
-    . '<div style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:.3px;">Agenda Digital Escolar</div>'
+    // Encabezado con el logo dibujado con texto
+    . '<tr><td align="center" bgcolor="#0f4c9a" style="background:#0f4c9a;background-image:linear-gradient(135deg,#1260c4 0%,#0a2f6b 100%);padding:30px 20px 24px;border-bottom:4px solid #23c16b;">'
+    . '<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 14px;"><tr>'
+    . '<td align="center" bgcolor="#ffffff" style="background:#ffffff;border-radius:16px;padding:10px 22px;border-bottom:5px solid #23c16b;">'
+    . '<span style="font-family:Arial,Helvetica,sans-serif;font-size:28px;font-weight:900;letter-spacing:3px;color:#0b2a4a;">A.D.E.</span>'
+    . '</td></tr></table>'
+    . '<div style="color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:19px;font-weight:bold;letter-spacing:.4px;">Agenda Digital Escolar</div>'
+    . '<div style="color:#a9c9f5;font-family:Arial,Helvetica,sans-serif;font-size:12px;margin-top:5px;">Tu agenda escolar en un solo lugar</div>'
     . '</td></tr>'
 
-    . '<tr><td style="padding:30px 30px 8px;color:#10213a;">'
-    . '<h1 style="margin:0 0 14px;font-size:22px;color:#0b2a4a;">' . $t . '</h1>'
-    . '<p style="margin:0 0 12px;font-size:15px;line-height:1.5;">Hola' . ($n !== '' ? ', <b>' . $n . '</b>' : '') . '.</p>'
-    . '<p style="margin:0 0 20px;font-size:15px;line-height:1.5;">' . $x . '</p>'
+    // Mensaje
+    . '<tr><td style="padding:32px 32px 10px;font-family:Arial,Helvetica,sans-serif;color:#c9dcf7;">'
+    . '<h1 style="margin:0 0 16px;font-size:23px;line-height:1.25;color:#ffffff;">' . $t . '</h1>'
+    . '<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#dbe8ff;">Hola' . ($n !== '' ? ', <b style="color:#ffffff;">' . $n . '</b>' : '') . '.</p>'
+    . '<p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#c9dcf7;">' . $x . '</p>'
     . '</td></tr>'
 
-    . '<tr><td align="center" style="padding:0 30px 8px;">'
-    . '<div style="display:inline-block;background:#f0faf4;border:2px solid #23a05a;border-radius:14px;padding:16px 28px;">'
-    . '<span style="font-size:36px;font-weight:bold;letter-spacing:10px;color:#0b2a4a;font-family:Arial,Helvetica,sans-serif;">' . $c . '</span>'
-    . '</div>'
+    // Código
+    . '<tr><td align="center" style="padding:0 32px 10px;">'
+    . '<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr>'
+    . '<td align="center" bgcolor="#08183a" style="background:#08183a;border:2px solid #23c16b;border-radius:18px;padding:16px 32px 18px;">'
+    . '<div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:3px;color:#7fe0ad;margin-bottom:6px;">TU CÓDIGO</div>'
+    . '<span style="font-family:Arial,Helvetica,sans-serif;font-size:38px;font-weight:bold;letter-spacing:11px;color:#ffffff;">' . $c . '</span>'
+    . '</td></tr></table>'
     . '</td></tr>'
 
-    . '<tr><td style="padding:18px 30px 28px;color:#4a5a73;font-size:13px;line-height:1.6;">'
-    . '<p style="margin:0 0 10px;">Este código vence en <b>' . $min . ' minutos</b> y solo sirve una vez.</p>'
-    . '<p style="margin:0 0 10px;"><b>No lo compartas con nadie.</b> El equipo de A.D.E. nunca te lo pedirá.</p>'
+    // Avisos
+    . '<tr><td style="padding:20px 32px 30px;font-family:Arial,Helvetica,sans-serif;color:#9db6d9;font-size:13px;line-height:1.65;">'
+    . '<p style="margin:0 0 10px;">Este código vence en <b style="color:#ffffff;">' . $min . ' minutos</b> y solo sirve una vez.</p>'
+    . '<p style="margin:0 0 10px;"><b style="color:#ffffff;">No lo compartas con nadie.</b> El equipo de A.D.E. nunca te lo pedirá.</p>'
     . '<p style="margin:0;">Si no fuiste tú, ignora este correo: nadie podrá entrar a tu cuenta sin el código.</p>'
     . '</td></tr>'
 
-    . '<tr><td align="center" style="background:#f4f7f6;padding:16px;color:#7a889c;font-size:12px;">A.D.E. · Agenda Digital Escolar</td></tr>'
+    . '<tr><td align="center" bgcolor="#081a37" style="background:#081a37;padding:16px;font-family:Arial,Helvetica,sans-serif;color:#6f8bb5;font-size:12px;border-top:1px solid #1f4378;">A.D.E. · Agenda Digital Escolar</td></tr>'
     . '</table></td></tr></table></body></html>';
 }
 

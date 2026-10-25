@@ -29,16 +29,17 @@ if ($nuevo && $rol === 'admin') {
 list($tabla, $p) = ROLES[$rol];
 
 if (!$nuevo) {
-    $existe = filas($conexion, "SELECT {$p}_usuario AS usuario FROM {$tabla} WHERE {$p}_codigo = ?", 'i', [$codigo]);
+    $existe = filas($conexion, "SELECT {$p}_usuario AS usuario, {$p}_correo AS correo FROM {$tabla} WHERE {$p}_codigo = ?", 'i', [$codigo]);
     if (!$existe) {
         fallar('Esa cuenta ya no existe.', 404);
     }
     if ($rol === 'admin') {
         $usuario = $existe[0]['usuario'];
+        $correo  = (string)$existe[0]['correo'];     // el administrador no necesita correo: se deja el que ya tiene
     }
 }
 
-validar_datos_basicos($nombre, $usuario, $correo);
+validar_datos_basicos($nombre, $usuario, $rol === 'admin' ? 'admin@ade.local' : $correo);
 
 if ($nuevo || $clave !== '') {
     if (strlen($clave) < 6 || strlen($clave) > 72) {
@@ -49,7 +50,7 @@ if ($nuevo || $clave !== '') {
 if (ya_existe_otro($conexion, 'usuario', $usuario, $nuevo ? '' : $rol, $codigo)) {
     fallar('Ese usuario ya existe.', 409);
 }
-if (ya_existe_otro($conexion, 'correo', $correo, $nuevo ? '' : $rol, $codigo)) {
+if ($rol !== 'admin' && ya_existe_otro($conexion, 'correo', $correo, $nuevo ? '' : $rol, $codigo)) {
     fallar('Ese correo ya lo usa otra cuenta.', 409);
 }
 
@@ -139,6 +140,11 @@ if (!$ok) {
         fallar('Ese usuario o correo ya existe.', 409);
     }
     fallar('No se pudo guardar la cuenta. Intenta de nuevo.', 500);
+}
+
+// Si se cambió el correo, la persona tiene que verificarlo otra vez
+if (!$nuevo && isset($existe[0]) && strcasecmp((string)$existe[0]['correo'], $correo) !== 0) {
+    ejecutar($conexion, "UPDATE {$tabla} SET {$p}_correo_verificado = 0 WHERE {$p}_codigo = ?", 'i', [$codigo]);
 }
 
 $conexion->commit();

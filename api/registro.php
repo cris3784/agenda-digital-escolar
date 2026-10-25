@@ -38,15 +38,15 @@ function crear_cuenta($conexion, $p) {
     $ok = true;
 
     if ($tipo === 'estudiante') {
-        $s = $conexion->prepare("INSERT INTO estudiantes (est_nombre, est_apellidos, est_nacimiento, est_usuario, est_correo, est_clave, est_gru_grupo) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $s = $conexion->prepare("INSERT INTO estudiantes (est_nombre, est_apellidos, est_nacimiento, est_usuario, est_correo, est_clave, est_gru_grupo, est_correo_verificado) VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
         $s->bind_param('sssssss', $nombre, $apellidos, $nacim, $usuario, $correo, $hash, $grupo);
         $ok = $s->execute();
     } elseif ($tipo === 'acudiente') {
-        $s = $conexion->prepare("INSERT INTO acudientes (acu_nombre, acu_apellidos, acu_nacimiento, acu_usuario, acu_correo, acu_clave, acu_gru_grupo) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $s = $conexion->prepare("INSERT INTO acudientes (acu_nombre, acu_apellidos, acu_nacimiento, acu_usuario, acu_correo, acu_clave, acu_gru_grupo, acu_correo_verificado) VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
         $s->bind_param('sssssss', $nombre, $apellidos, $nacim, $usuario, $correo, $hash, $grupo);
         $ok = $s->execute();
     } else {
-        $s = $conexion->prepare("INSERT INTO profesores (pro_nombre, pro_apellidos, pro_nacimiento, pro_usuario, pro_correo, pro_clave) VALUES (?, ?, ?, ?, ?, ?)");
+        $s = $conexion->prepare("INSERT INTO profesores (pro_nombre, pro_apellidos, pro_nacimiento, pro_usuario, pro_correo, pro_clave, pro_correo_verificado, pro_estado) VALUES (?, ?, ?, ?, ?, ?, 1, 'pendiente')");
         $s->bind_param('ssssss', $nombre, $apellidos, $nacim, $usuario, $correo, $hash);
         $ok = $s->execute();
 
@@ -95,7 +95,7 @@ if ((string)($d['paso'] ?? '') === 'confirmar') {
     }
     crear_cuenta($conexion, $p);
     borrar_codigos($conexion, $correoC, 'registro');
-    responder(['ok' => true]);
+    responder(['ok' => true, 'pendiente' => $p['tipo'] === 'profesor']);
 }
 
 /* ---------- Paso 1: validar los datos y mandar el código al correo ---------- */

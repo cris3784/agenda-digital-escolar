@@ -7,7 +7,8 @@ if (empty($_SESSION['rol']) || empty($_SESSION['codigo'])) {
 
 $u = cargar_usuario($conexion, $_SESSION['rol'], (int)$_SESSION['codigo']);
 
-if (!$u) {
+// Si la cuenta ya no existe, o es un profesor que dejó de estar aprobado, se cierra la sesión
+if (!$u || !cuenta_activa($u)) {
     $_SESSION = [];
     session_destroy();
     responder(['ok' => false]);

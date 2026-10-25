@@ -42,9 +42,74 @@ function notificacion_visible($c, $n) {
     return $g === $c['grupo'];
 }
 
-// Las últimas notificaciones que esta cuenta puede ver (todas las filas, sin juntar lotes)
+// Las últimas notificaciones que esta cuenta puede ver (todas las filas, sin juntar lotes).
+// El filtro se hace en la consulta SQL: ya no se traen las del colegio entero.
 function notificaciones_visibles($conexion, $c) {
-    $filas = filas($conexion, 'SELECT * FROM notificaciones ORDER BY not_codigo DESC LIMIT 400');
+    $rol = $c['rol'];
+    $tipos = '';
+    $params = [];
+
+    // Lo que publiqué yo no me avisa a mí
+    $donde = '(not_autor_rol IS NULL OR not_autor_rol <> ? OR not_autor_codigo IS NULL OR not_autor_codigo <> ?)';
+    $tipos .= 'si';
+    $params[] = $rol;
+    $params[] = (int)$c['codigo'];
+
+    if ($rol === 'admin') {
+        // dirigidas a un estudiante o profesor concreto no le llegan; todo lo demás sí
+        $donde .= ' AND not_est_estudiante IS NULL AND not_pro_profesor IS NULL';
+    } else {
+        // las marcadas "solo admin" no son para nadie más
+        $general = 'not_est_estudiante IS NULL AND not_pro_profesor IS NULL AND COALESCE(not_para_admin, 0) = 0';
+
+        // condición de grupo
+        $grupos = [];
+        $libre = false;
+        if ($rol === 'estudiante') {
+            $grupos = [(string)$c['grupo']];
+        } elseif ($rol === 'acudiente') {
+            $grupos = array_values($c['grupos']);
+        } elseif ($rol === 'profesor') {
+            foreach ($c['asig'] as $a) {
+                if ($a['gru'] === null) {
+                    $libre = true;
+                } elseif (!in_array($a['gru'], $grupos, true)) {
+                    $grupos[] = $a['gru'];
+                }
+            }
+        }
+
+        $tiposG = '';
+        $paramsG = [];
+        if (!$libre) {
+            $g = "(not_gru_grupo IS NULL OR not_gru_grupo = '')";
+            if ($grupos) {
+                $g = "(not_gru_grupo IS NULL OR not_gru_grupo = '' OR not_gru_grupo IN (" . implode(',', array_fill(0, count($grupos), '?')) . '))';
+                $tiposG = str_repeat('s', count($grupos));
+                $paramsG = $grupos;
+            }
+            $general .= ' AND ' . $g;
+        }
+
+        if ($rol === 'estudiante') {
+            $donde .= " AND (not_est_estudiante = ? OR ($general))";
+            $tipos .= 'i' . $tiposG;
+            $params = array_merge($params, [(int)$c['codigo']], $paramsG);
+        } elseif ($rol === 'profesor') {
+            $donde .= " AND (not_pro_profesor = ? OR ($general))";
+            $tipos .= 'i' . $tiposG;
+            $params = array_merge($params, [(int)$c['codigo']], $paramsG);
+        } else {
+            $donde .= " AND ($general)";
+            $tipos .= $tiposG;
+            $params = array_merge($params, $paramsG);
+        }
+    }
+
+    // Los parámetros están en el mismo orden en que aparecen los "?" del SQL
+    $filas = filas($conexion, "SELECT * FROM notificaciones WHERE {$donde} ORDER BY not_codigo DESC LIMIT 400", $tipos, $params);
+
+    // Segunda revisión con la regla original, por seguridad
     $vis = [];
     foreach ($filas as $n) {
         if (notificacion_visible($c, $n)) {
