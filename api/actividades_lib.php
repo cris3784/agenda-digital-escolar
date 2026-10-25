@@ -86,11 +86,25 @@ function grupo_de_estudiante($conexion, $codigo) {
 function contexto($conexion) {
     $rol = $_SESSION['rol'];
     $codigo = (int)$_SESSION['codigo'];
-    $c = ['rol' => $rol, 'codigo' => $codigo, 'asig' => [], 'grupo' => ''];
+    $c = ['rol' => $rol, 'codigo' => $codigo, 'asig' => [], 'grupo' => '', 'grupos' => []];
     if ($rol === 'profesor') {
         $c['asig'] = asignaciones_de($conexion, $codigo);
     } elseif ($rol === 'estudiante') {
         $c['grupo'] = grupo_de_estudiante($conexion, $codigo);
+        $c['grupos'] = $c['grupo'] !== '' ? [$c['grupo']] : [];
+    } elseif ($rol === 'acudiente') {
+        // El acudiente solo entra a los datos cuando ya está validado (un estudiante verificó su correo)
+        $f = filas($conexion, 'SELECT acu_correo AS correo, acu_gru_grupo AS grupo FROM acudientes WHERE acu_codigo = ?', 'i', [$codigo]);
+        $hijos = $f ? hijos_de_acudiente($conexion, (string)$f[0]['correo'], (string)$f[0]['grupo']) : [];
+        if (!$hijos) {
+            fallar('Tu cuenta de acudiente todavía no está validada.', 403);
+        }
+        foreach ($hijos as $h) {
+            if (!in_array($h['grade'], $c['grupos'], true)) {
+                $c['grupos'][] = $h['grade'];
+            }
+        }
+        $c['grupo'] = $hijos[0]['grade'];
     }
     return $c;
 }
@@ -101,6 +115,9 @@ function puede_ver($c, $a) {
     }
     if ($c['rol'] === 'profesor') {
         return profesor_puede($c['asig'], $a['act_mat_materia'], $a['act_gru_grupo']);
+    }
+    if ($c['rol'] === 'acudiente') {
+        return $a['act_gru_grupo'] === null || in_array($a['act_gru_grupo'], $c['grupos'], true);
     }
     return $a['act_gru_grupo'] === null || $a['act_gru_grupo'] === $c['grupo'];
 }
@@ -139,6 +156,8 @@ function armar_actividades($conexion, $c, $filas) {
     $sql = 'SELECT e.*, s.est_usuario, s.est_nombre FROM entregas e JOIN estudiantes s ON s.est_codigo = e.ent_est_estudiante WHERE e.ent_act_actividad IN (' . implode(',', $ids) . ')';
     if ($c['rol'] === 'estudiante') {
         $entregas = filas($conexion, $sql . ' AND e.ent_est_estudiante = ?', 'i', [$c['codigo']]);
+    } elseif ($c['rol'] === 'acudiente') {
+        $entregas = [];      // el acudiente no ve entregas ni notas
     } else {
         $entregas = filas($conexion, $sql);
     }

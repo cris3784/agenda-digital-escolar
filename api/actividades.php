@@ -8,7 +8,7 @@ if ($c['rol'] === 'estudiante') {
     $filas = consulta_actividades($conexion, 'WHERE a.act_gru_grupo IS NULL OR a.act_gru_grupo = ?', 's', [$c['grupo']]);
 } else {
     $filas = consulta_actividades($conexion);
-    if ($c['rol'] === 'profesor') {
+    if ($c['rol'] === 'profesor' || $c['rol'] === 'acudiente') {
         $filas = array_values(array_filter($filas, function ($a) use ($c) {
             return puede_ver($c, $a);
         }));
