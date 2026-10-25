@@ -6,7 +6,7 @@ solo_post();
 exigir_sesion();
 
 $c = contexto($conexion);
-if ($c['rol'] === 'estudiante') {
+if ($c['rol'] !== 'admin' && $c['rol'] !== 'profesor') {
     fallar('No tienes permiso para hacer esto.', 403);
 }
 
