@@ -1,56 +1,87 @@
 <?php
+/* Recuperar contraseña con un código de 6 dígitos que llega al correo.
+   paso "enviar"    -> la persona escribe su correo y le mandamos el código
+   paso "verificar" -> escribe el código; si es correcto, entra a su cuenta
+   paso "cambiar"   -> ya dentro, elige su contraseña nueva (15 minutos para hacerlo) */
 require __DIR__ . '/util.php';
+require __DIR__ . '/correo_lib.php';
 solo_post();
 
 $d = entrada();
 $paso = (string)($d['paso'] ?? '');
 
-if (($_SESSION['rec_intentos'] ?? 0) >= 6 && time() - ($_SESSION['rec_ultimo'] ?? 0) < 600) {
-    fallar('Demasiados intentos. Espera unos minutos e intenta de nuevo.', 429);
-}
-
-if ($paso === 'verificar') {
-    $usuario = trim((string)($d['usuario'] ?? ''));
-    $correo  = trim((string)($d['correo'] ?? ''));
-
-    if ($usuario === '' || $correo === '') {
-        fallar('Escribe tu usuario y tu correo.');
-    }
-
-    $encontrada = null;
-    foreach (['estudiante', 'profesor'] as $rol) {
+function buscar_cuenta_por_correo($conexion, $correo) {
+    foreach (['estudiante', 'profesor', 'acudiente'] as $rol) {   // el administrador no recupera por correo
         list($tabla, $p) = ROLES[$rol];
         $f = filas(
             $conexion,
-            "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre FROM {$tabla} WHERE {$p}_usuario = ? AND {$p}_correo = ? LIMIT 1",
-            'ss',
-            [$usuario, $correo]
+            "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre FROM {$tabla} WHERE {$p}_correo = ? LIMIT 1",
+            's',
+            [$correo]
         );
         if ($f) {
-            $encontrada = ['rol' => $rol, 'codigo' => (int)$f[0]['codigo'], 'nombre' => $f[0]['nombre']];
-            break;
+            return ['rol' => $rol, 'codigo' => (int)$f[0]['codigo'], 'nombre' => $f[0]['nombre']];
         }
     }
+    return null;
+}
 
-    if (!$encontrada) {
-        $_SESSION['rec_intentos'] = ($_SESSION['rec_intentos'] ?? 0) + 1;
-        $_SESSION['rec_ultimo'] = time();
-        usleep(500000);
-        fallar('Los datos no coinciden con ninguna cuenta.', 404);
+if ($paso === 'enviar') {
+    $correo = trim((string)($d['correo'] ?? ''));
+    if (!filter_var($correo, FILTER_VALIDATE_EMAIL) || strlen($correo) > 120) {
+        fallar('Escribe el correo de tu cuenta.');
     }
 
-    $_SESSION['recuperar'] = [
-        'rol'    => $encontrada['rol'],
-        'codigo' => $encontrada['codigo'],
-        'hasta'  => time() + 600
+    $cuenta = buscar_cuenta_por_correo($conexion, $correo);
+
+    if ($cuenta) {
+        list($idCodigo, $codigo) = crear_codigo($conexion, $correo, 'recuperar', ['rol' => $cuenta['rol'], 'codigo' => $cuenta['codigo']]);
+
+        $html = plantilla_codigo(
+            'Recupera tu cuenta',
+            $cuenta['nombre'],
+            'Recibimos una solicitud para recuperar tu cuenta. Escribe este código en A.D.E. para entrar y elegir una contraseña nueva.',
+            $codigo
+        );
+        if (!enviar_correo($correo, $cuenta['nombre'], 'Tu código para recuperar la cuenta - A.D.E.', $html)) {
+            borrar_codigo_id($conexion, $idCodigo);
+            fallar('No pudimos enviar el correo. Intenta de nuevo en un momento.', 502);
+        }
+    } else {
+        usleep(600000);   // se responde igual para no revelar qué correos existen
+    }
+
+    responder(['ok' => true]);
+}
+
+if ($paso === 'verificar') {
+    $correo = trim((string)($d['correo'] ?? ''));
+
+    $v = verificar_codigo($conexion, $correo, 'recuperar', $d['codigo'] ?? '');
+
+    $datos = $v['datos'];
+    $usuario = is_array($datos) ? cargar_usuario($conexion, (string)($datos['rol'] ?? ''), (int)($datos['codigo'] ?? 0)) : null;
+    if (!$usuario) {
+        fallar('No se encontró la cuenta.', 404);
+    }
+
+    session_regenerate_id(true);
+    $_SESSION = [
+        'rol'       => $datos['rol'],
+        'codigo'    => (int)$datos['codigo'],
+        'recuperar' => ['hasta' => time() + 900]
     ];
-    responder(['ok' => true, 'nombre' => $encontrada['nombre']]);
+    borrar_codigos($conexion, $correo, 'recuperar');
+
+    responder(['ok' => true, 'usuario' => $usuario]);
 }
 
 if ($paso === 'cambiar') {
+    exigir_sesion();
+
     $r = $_SESSION['recuperar'] ?? null;
     if (!$r || $r['hasta'] < time()) {
-        fallar('Se acabó el tiempo. Vuelve a escribir tu usuario y tu correo.', 403);
+        fallar('Se acabó el tiempo. Pide un código nuevo para recuperar tu cuenta.', 403);
     }
 
     $nueva = (string)($d['nueva'] ?? '');
@@ -58,8 +89,8 @@ if ($paso === 'cambiar') {
         fallar('La nueva contraseña debe tener entre 6 y 72 caracteres.');
     }
 
-    list($tabla, $p) = ROLES[$r['rol']];
-    if (!ejecutar($conexion, "UPDATE {$tabla} SET {$p}_clave = ? WHERE {$p}_codigo = ?", 'si', [password_hash($nueva, PASSWORD_DEFAULT), $r['codigo']])) {
+    list($tabla, $p) = ROLES[$_SESSION['rol']];
+    if (!ejecutar($conexion, "UPDATE {$tabla} SET {$p}_clave = ? WHERE {$p}_codigo = ?", 'si', [password_hash($nueva, PASSWORD_DEFAULT), (int)$_SESSION['codigo']])) {
         fallar('No se pudo cambiar la contraseña.', 500);
     }
 

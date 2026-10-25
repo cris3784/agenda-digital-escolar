@@ -17,6 +17,9 @@ $grupos   = lista_texto($d['grupos'] ?? []);
 if (!isset(ROLES[$rol])) {
     fallar('Tipo de cuenta no válido.');
 }
+if ($rol === 'acudiente') {
+    fallar('Las cuentas de acudiente las edita cada persona desde Mi perfil.');
+}
 
 $nuevo = $codigo < 1;
 if ($nuevo && $rol === 'admin') {

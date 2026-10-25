@@ -96,6 +96,8 @@ foreach ($eventos as $ev) {
                     }
                 }
             }
+        } elseif ($c['rol'] === 'acudiente') {
+            $visible = count(array_intersect($grupos, $c['grupos'])) > 0;
         } else {
             $visible = in_array($c['grupo'], $grupos, true);
         }

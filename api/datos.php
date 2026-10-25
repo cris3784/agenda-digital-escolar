@@ -16,6 +16,8 @@ if ($rol === 'admin') {
     $otros = listar_todos($conexion);
 } elseif ($rol === 'profesor') {
     $otros = listar_estudiantes_de_profesor($conexion, $yo);
+} elseif ($rol === 'acudiente') {
+    $otros = [];
 } else {
     $otros = listar_profesores_de_grupo($conexion, $yo['grade']);
 }

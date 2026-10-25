@@ -3,7 +3,7 @@
 require __DIR__ . '/actividades_lib.php';
 
 function columna_lectura($rol) {
-    $m = ['estudiante' => 'lec_est_estudiante', 'profesor' => 'lec_pro_profesor', 'admin' => 'lec_adm_administrador'];
+    $m = ['estudiante' => 'lec_est_estudiante', 'profesor' => 'lec_pro_profesor', 'admin' => 'lec_adm_administrador', 'acudiente' => 'lec_acu_acudiente'];
     return $m[$rol];
 }
 
@@ -35,6 +35,9 @@ function notificacion_visible($c, $n) {
             }
         }
         return false;
+    }
+    if ($c['rol'] === 'acudiente') {
+        return in_array($g, $c['grupos'], true);
     }
     return $g === $c['grupo'];
 }

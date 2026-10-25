@@ -16,7 +16,8 @@ header('Cache-Control: no-store');
 const ROLES = [
     'admin'      => ['administradores', 'adm'],
     'profesor'   => ['profesores', 'pro'],
-    'estudiante' => ['estudiantes', 'est']
+    'estudiante' => ['estudiantes', 'est'],
+    'acudiente'  => ['acudientes', 'acu']
 ];
 
 function responder($datos, $codigo = 200) {
@@ -92,13 +93,40 @@ function filas($conexion, $sql, $tipos = '', $params = []) {
     return $salida;
 }
 
+// Estudiantes que ya verificaron este correo como el de su acudiente.
+// Si el acudiente eligió un grado al registrarse, los hijos de ese grado van primero.
+function hijos_de_acudiente($conexion, $correo, $gradoElegido = '') {
+    $f = filas(
+        $conexion,
+        'SELECT est_codigo AS codigo, est_nombre AS nombre, est_apellidos AS apellidos, est_usuario AS usuario, est_gru_grupo AS grupo FROM estudiantes WHERE est_acu_correo = ? AND est_acu_verificado = 1 ORDER BY est_gru_grupo, est_codigo',
+        's',
+        [$correo]
+    );
+    $primeros = [];
+    $otros = [];
+    foreach ($f as $x) {
+        $h = [
+            'code'     => (int)$x['codigo'],
+            'name'     => trim($x['nombre'] . ' ' . $x['apellidos']),
+            'username' => $x['usuario'],
+            'grade'    => $x['grupo']
+        ];
+        if ($gradoElegido !== '' && $x['grupo'] === $gradoElegido) {
+            $primeros[] = $h;
+        } else {
+            $otros[] = $h;
+        }
+    }
+    return array_merge($primeros, $otros);
+}
+
 function cargar_usuario($conexion, $rol, $codigo) {
     if (!isset(ROLES[$rol])) {
         return null;
     }
     list($tabla, $p) = ROLES[$rol];
 
-    $extra = $rol === 'estudiante' ? ', est_gru_grupo AS grupo' : '';
+    $extra = $rol === 'estudiante' ? ', est_gru_grupo AS grupo' : ($rol === 'acudiente' ? ', acu_gru_grupo AS grupo' : '');
     $f = filas(
         $conexion,
         "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre, {$p}_apellidos AS apellidos, {$p}_nacimiento AS nacimiento, {$p}_usuario AS usuario, {$p}_correo AS correo, {$p}_creado AS creado, {$p}_foto AS foto{$extra} FROM {$tabla} WHERE {$p}_codigo = ?",
@@ -135,6 +163,27 @@ function cargar_usuario($conexion, $rol, $codigo) {
 
     if ($rol === 'estudiante') {
         $u['grade'] = $f['grupo'];
+
+        // Correo del acudiente (se lee aparte: si falta la columna, el ingreso no se rompe)
+        $g = filas($conexion, 'SELECT est_acu_correo AS correo, est_acu_verificado AS ver FROM estudiantes WHERE est_codigo = ?', 'i', [$codigo]);
+        $u['guardianEmail']    = ($g && $g[0]['correo'] !== null) ? (string)$g[0]['correo'] : '';
+        $u['guardianVerified'] = $g ? !empty($g[0]['ver']) : false;
+    }
+
+    if ($rol === 'acudiente') {
+        // Solo queda validado cuando un estudiante escribió su correo y lo verificó con el código
+        $hijos = hijos_de_acudiente($conexion, (string)$f['correo'], (string)$f['grupo']);
+        $u['pendingGrade'] = (string)$f['grupo'];
+        $u['validated']    = count($hijos) > 0;
+        $u['children']     = $hijos;
+        $u['grade']        = $hijos ? $hijos[0]['grade'] : '';
+        $grupos = [];
+        foreach ($hijos as $h) {
+            if (!in_array($h['grade'], $grupos, true)) {
+                $grupos[] = $h['grade'];
+            }
+        }
+        $u['groups'] = $grupos;
     }
 
     if ($rol === 'profesor') {

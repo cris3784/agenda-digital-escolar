@@ -28,6 +28,10 @@ if ($c['rol'] === 'admin') {
     $grupos = $todos;
 } elseif ($c['rol'] === 'estudiante') {
     $grupos = in_array($c['grupo'], $todos, true) ? [$c['grupo']] : [];
+} elseif ($c['rol'] === 'acudiente') {
+    $grupos = array_values(array_filter($todos, function ($g) use ($c) {
+        return in_array($g, $c['grupos'], true);
+    }));
 } else {
     $sinLimite = false;
     $mios = [];

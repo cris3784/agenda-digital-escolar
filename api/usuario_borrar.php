@@ -7,7 +7,7 @@ $d = entrada();
 $rol    = (string)($d['rol'] ?? '');
 $codigo = (int)($d['codigo'] ?? 0);
 
-if (($rol !== 'estudiante' && $rol !== 'profesor') || $codigo < 1) {
+if (($rol !== 'estudiante' && $rol !== 'profesor' && $rol !== 'acudiente') || $codigo < 1) {
     fallar('Cuenta no válida.');
 }
 

@@ -7,7 +7,7 @@ $rol = $_SESSION['rol'];
 $codigo = (int)$_SESSION['codigo'];
 
 $id = (string)($_GET['u'] ?? '');
-if (preg_match('/^(adm|pro|est)([0-9]+)$/', $id, $m)) {
+if (preg_match('/^(adm|pro|est|acu)([0-9]+)$/', $id, $m)) {
     foreach (ROLES as $r => $info) {
         if ($info[1] === $m[1]) {
             $rol = $r;
