@@ -49,7 +49,7 @@ async function cargarGruposServidor(){
 cargarGruposServidor();
 
 // Se piden al abrir la página; cuando llegan, se vuelve a dibujar lo que las muestra
-const materiasListas = cargarMateriasServidor().then(ok => {
+cargarMateriasServidor().then(ok => {
   if(ok && typeof currentUser !== "undefined" && currentUser){
     try{
       if(document.getElementById("subjectList")) renderSubjects();
@@ -354,7 +354,6 @@ function classesOfDay(dayName){
 
   const onDay = list => ((list || []).find(x => x.day === dayName) || {classes:[]}).classes;
 
-  if(role !== "estudiante" && typeof ttLoadGroupSchedules === "function") ttLoadGroupSchedules();
   const hasGroups = typeof groupSchedules !== "undefined" && Object.keys(groupSchedules).length;
 
   if(hasGroups){
@@ -560,17 +559,16 @@ function ttParseStart(time){
   return m ? Number(m[1]) * 60 + Number(m[2]) : 9999;
 }
  
-// Pide un nombre y valida que no esté vacío ni repetido. Devuelve null si se cancela.
-function askSubjectName(message, current = "", skipIndex = -1){
-  const clean = prompt(message, current)?.trim();
-  if(!clean) return null;
-  if(subjects.some((s, i) => i !== skipIndex && s.toLowerCase() === clean.toLowerCase())){
-    alert("Esa materia ya existe.");
-    return null;
-  }
-  return clean;
+// Pide un nombre en una ventana y valida que no esté vacío ni repetido. Devuelve null si se cancela.
+async function askSubjectName(message, current = "", skipIndex = -1){
+  const clean = await adePrompt(message, current, {
+    title: current ? "Editar materia" : "Nueva materia", icon: "📚", placeholder: "Ej. Matemáticas", maxlength: 60,
+    validate: v => v.length < 2 ? "El nombre debe tener al menos 2 letras."
+      : (subjects.some((s, i) => i !== skipIndex && s.toLowerCase() === v.toLowerCase()) ? "Esa materia ya existe." : null)
+  });
+  return clean ? clean.trim() : null;
 }
- 
+
 let materiaBusy = false;
 
 // accion: "agregar" | "editar" | "borrar". Guarda en el servidor y vuelve a leer la lista.
@@ -589,21 +587,21 @@ async function guardarMateria(accion, actual, nombre){
 
 async function addSubject(){
   if(!requirePermission("create","materia")) return;
-  const name = askSubjectName("Nombre de la nueva materia:");
+  const name = await askSubjectName("Nombre de la nueva materia");
   if(!name) return;
   await guardarMateria("agregar", "", name);
 }
 
 async function editSubject(i){
   if(!requirePermission("edit","materia")) return;
-  const name = askSubjectName("Nuevo nombre de la materia:", subjects[i], i);
+  const name = await askSubjectName("Nuevo nombre de la materia", subjects[i], i);
   if(!name) return;
   await guardarMateria("editar", subjects[i], name);
 }
 
 async function deleteSubject(i){
   if(!requirePermission("delete","materia")) return;
-  if(!confirm(`¿Seguro que deseas borrar la materia "${subjects[i]}"?`)) return;
+  if(!await adeConfirm(`Se borrará la materia "${subjects[i]}".`, {title:"Borrar materia", ok:"Sí, borrar", danger:true})) return;
   await guardarMateria("borrar", subjects[i], "");
 }
  

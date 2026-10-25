@@ -118,11 +118,6 @@ const TT_SCALE = 1.5;          // tamaño fijo, igual en todas las pantallas (ca
 const TT_DAY_START = 6 * 60;           // 6:00
 const TT_DAY_END = 11 * 60 + 45;       // 11:45
 
-// Tamaño del horario (fijo: ni muy grande ni muy pequeño)
-function ttFitScale(el, minutes){
-  return TT_SCALE;
-}
-
 /* ---------------------------------------------------------
    DESCANSO: franja centrada que cruza todos los días.
    Cambia la hora si tu descanso es otra (formato "8:37 - 9:07").
@@ -562,8 +557,8 @@ function renderSchedule(){
   const from = Math.floor(min / 60) * 60;
   const to = Math.ceil(max / 60) * 60;
 
-  // El horario se estira para llenar la altura de la pantalla
-  const S = ttFitScale(el, to - from);
+  // Tamaño fijo del horario
+  const S = TT_SCALE;
 
   // Descanso: parte el horario en "antes" y "después"
   const br = TT_BREAK ? ttParseTime(TT_BREAK.time) : null;
@@ -795,29 +790,32 @@ async function guardarHorario(datos){
   return true;
 }
 
-// Pide materia, hora y salón. Devuelve los datos listos para enviar, o null si se canceló o hay un error.
-function ttAskClass(c){
-  const subject = prompt("Materia:", c ? c.subject : (subjects[0] || ""));
-  if(subject === null) return null;
-  const materia = ttResolveSubject(subject);
-  if(!materia){ alert("Esa materia no existe. Escribe una de la lista de Materias."); return null; }
+// Pide materia, hora y salón en una ventana. Devuelve los datos listos para enviar, o null si se canceló.
+async function ttAskClass(c){
 
-  const time = prompt("Hora (ej. 6:00 - 7:45):", c ? c.time : "");
-  if(time === null) return null;
-  const t = ttParseTime(time);
-  if(!t){ alert("Escribe la hora así: 6:00 - 7:45"); return null; }
+  const current = c ? ttResolveSubject(c.subject) : null;
+  const t0 = c ? ttParseTime(c.time) : null;
 
-  const room = prompt("Salón / lugar:", c ? c.room : "");
-  if(room === null) return null;
-  if(room.trim().length > 20){ alert("El salón puede tener máximo 20 letras."); return null; }
+  const r = await adeForm({
+    title: c ? "Editar clase" : "Agregar clase", icon: "🕐", ok: c ? "Guardar cambios" : "Agregar",
+    fields: [
+      {id:"materia", label:"Materia", type:"select", options:subjects.slice(), value:current || subjects[0] || ""},
+      {id:"inicio", label:"Hora de inicio", type:"time", value:t0 ? ttToHHMM(t0.start) : "", half:true, required:true},
+      {id:"fin", label:"Hora de fin", type:"time", value:t0 ? ttToHHMM(t0.end) : "", half:true, required:true},
+      {id:"salon", label:"Salón / lugar (opcional)", type:"text", maxlength:20, value:c ? c.room : "", placeholder:"Ej. 201"}
+    ],
+    validate: v => v.inicio >= v.fin ? "La clase debe terminar después de empezar." : null
+  });
+  if(!r) return null;
 
-  return {materia:materia, inicio:ttToHHMM(t.start), fin:ttToHHMM(t.end), salon:room.trim(), hora:time.trim()};
+  const fmt = hhmm => { const p = hhmm.split(":").map(Number); return (p[0] % 12 === 0 ? 12 : p[0] % 12) + ":" + String(p[1]).padStart(2, "0"); };
+  return {materia:r.materia, inicio:r.inicio, fin:r.fin, salon:r.salon.trim(), hora:fmt(r.inicio) + " - " + fmt(r.fin)};
 }
 
 async function addScheduleItem(di){
   if(!requirePermission("create","horario")) return;
   if(scheduleMode !== "group" || !scheduleGroup) return;
-  const q = ttAskClass(null);
+  const q = await ttAskClass(null);
   if(!q) return;
   const day = schedule[di].day;
   const ok = await guardarHorario({accion:"agregar", grupo:scheduleGroup, dia:day, materia:q.materia, inicio:q.inicio, fin:q.fin, salon:q.salon});
@@ -828,7 +826,7 @@ async function editScheduleItem(di,ci){
   if(!requirePermission("edit","horario")) return;
   const c = schedule[di].classes[ci];
   if(!c || !c.id) return;
-  const q = ttAskClass(c);
+  const q = await ttAskClass(c);
   if(!q) return;
   const day = schedule[di].day;
   const ok = await guardarHorario({accion:"editar", codigo:c.id, materia:q.materia, inicio:q.inicio, fin:q.fin, salon:q.salon});
@@ -839,7 +837,7 @@ async function deleteScheduleItem(di,ci){
   if(!requirePermission("delete","horario")) return;
   const c = schedule[di].classes[ci];
   if(!c || !c.id) return;
-  if(!confirm("¿Seguro que deseas borrar esta clase?")) return;
+  if(!await adeConfirm("Se quitará esta clase del horario.", {title:"Borrar clase", ok:"Sí, borrar", danger:true})) return;
   const day = schedule[di].day;
   const ok = await guardarHorario({accion:"borrar", codigo:c.id});
   if(ok) ttNotifyChange("Se quitó " + c.subject + " del " + day + ".");
@@ -847,8 +845,6 @@ async function deleteScheduleItem(di,ci){
 
 // El horario usa siempre los días de lunes a viernes (los botones de días no se muestran)
 function addScheduleDay(){ alert("El horario usa los días de lunes a viernes."); }
-function editScheduleDay(){ addScheduleDay(); }
-function deleteScheduleDay(){ addScheduleDay(); }
 
 
 // Actualiza "En curso" y "HOY" cada minuto (solo si el horario está a la vista)

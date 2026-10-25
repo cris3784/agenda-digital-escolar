@@ -30,53 +30,6 @@ function ensureHomeStyle(){
     .page .section-head h3{font-size:16px}
     .page .section-head .btn{padding:6px 12px;font-size:12px}
  
-    /* Tarjetas de actividades */
-    .activities{gap:12px}
-    .card.activity{padding:12px 14px;border-radius:13px}
-    .activity-info h4{font-size:14px;margin-bottom:3px}
-    .activity-info p{font-size:12px}
-    .activity-info p.activity-extra{margin-top:4px}
- 
-    /* Tarjeta: el texto se acomoda al espacio y los botones quedan fijos */
-    /* Evita que una tarjeta con texto largo ensanche su columna y aplaste a la vecina */
-    .activities > *,
-    .card.activity{min-width:0}
-    .activity-info{
-      flex:1 1 0;
-      min-width:0;               /* permite que el texto largo se corte en vez de empujar los botones */
-      overflow-wrap:anywhere;
-    }
-    .activity-info a.file-link{
-      display:inline-block;
-      max-width:calc(100% - 30px);   /* deja sitio al 📎 */
-      vertical-align:bottom;
-      overflow:hidden;
-      text-overflow:ellipsis;    /* nombre largo: "Archivo_muy_lar..." */
-      white-space:nowrap;
-    }
-    .activity-side{
-      display:flex;
-      flex-direction:column;
-      align-items:flex-end;
-      gap:6px;
-      flex:0 0 auto;             /* nunca se encoge ni se mueve */
-    }
-    .activity-actions{flex-wrap:nowrap !important}
-    .activity-actions .btn{white-space:nowrap}
-    .activity-side .badge{font-size:10px;padding:4px 8px}
- 
-    .activity-actions{
-      display:flex;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      gap:5px;
-    }
-    .activity-actions .btn{
-      padding:4px 9px;
-      font-size:11px;
-      border-radius:7px;
-    }
- 
     /* Botones pequeños (materias, horario, tabla) */
     .subject-actions .btn,
     .table .btn,
@@ -88,12 +41,7 @@ function ensureHomeStyle(){
     #perfil .profile-top{gap:14px;margin-bottom:16px}
     #perfil .profile-top h2{font-size:20px;margin-bottom:2px}
     #perfil .big-avatar{width:56px;height:56px;font-size:21px}
-    #perfil .form-grid{gap:12px}
     #perfil .actions{margin-top:14px}
-    #perfil .field{gap:5px}
-    #perfil .field label{font-size:12px}
-    #perfil .field input,
-    #perfil .field select{padding:8px 10px;font-size:13px;border-radius:8px}
  
     /* Administración */
     #admin .card{padding:14px 16px;border-radius:13px}
@@ -202,12 +150,6 @@ function activityDaysLeft(a){
   const n = new Date();
   const start = new Date(n.getFullYear(), n.getMonth(), n.getDate());
   return Math.round((new Date(a.date + "T00:00:00") - start) / 86400000);
-}
-
-// ¿Esta entrega (hecha en "when") llegó después del límite?
-function isLateSubmission(a, when){
-  const dl = activityDeadline(a);
-  return !!dl && (when || new Date()) > dl;
 }
 
 // Estado según la fecha: "late" = ya venció · "today" = vence hoy · "" = a tiempo o ya entregada
@@ -476,7 +418,6 @@ const ACT_FILTER = {q:"", subject:"", group:"", status:"all", date:"all"};
 const ACT_ICONS = {
   search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   book:'<svg viewBox="0 0 24 24"><path d="M12 6.8C10 5.2 7.3 4.6 3.8 4.8v13.4c3.5-.2 6.2.4 8.2 2 2-1.6 4.7-2.2 8.2-2V4.8c-3.5-.2-6.2.4-8.2 2z"/><path d="M12 6.8v13.4"/></svg>',
-  filter:'<svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8.5V20l-4-2v-4.5z"/></svg>',
   cal:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   chev:'<svg class="act-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>',
   upload:'<svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>',
@@ -1179,7 +1120,7 @@ async function saveActivityEdit(){
 async function deleteActivity(i){
   if(!requirePermission("delete","actividad")) return;
   if(!canManageActivity(activities[i])) return denyPermission();
-  if(!confirm("¿Seguro que deseas borrar esta actividad?")) return;
+  if(!await adeConfirm("Se borrará la actividad y también las entregas que tenga.", {title:"Borrar actividad", ok:"Sí, borrar", danger:true})) return;
 
   const datos = new FormData();
   datos.append("accion", "borrar");

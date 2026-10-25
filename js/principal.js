@@ -2,14 +2,6 @@
    PRINCIPAL: guardado, navegación, tarjetas y arranque
    ========================================================= */
  
-// Guardado agrupado: si se llama varias veces seguidas (ej. al corregir varias entregas) se escribe
-// una sola vez, así no se congela la pantalla serializando todo cada vez. Se guarda sí o sí al
-// cerrar o cambiar de pestaña (flushSave).
-// Las actividades ya no se guardan en el navegador: viven en la base de datos.
-// Estas dos funciones se dejan vacías para que cualquier llamada vieja a save() no falle.
-function flushSave(){}
-function save(){}
-
 /* ---------- Botones de icono (verdes, como los iconos del menú) ----------
    Se usan para Editar / Borrar / Agregar en Materias, Horario, Calendario y Administración.
    ibtn("edit", "Editar", "editSubject(3)")  →  devuelve el HTML del botón. */
@@ -53,10 +45,6 @@ function ibtn(kind, title, onclick, size){
     (onclick ? ' onclick="' + onclick + '"' : " disabled") + '>' + (IBTN_ICONS[kind] || "") + '</button>';
 }
 
-window.addEventListener("pagehide", flushSave);
-document.addEventListener("visibilitychange", () => { if(document.hidden) flushSave(); });
- 
- 
 /* ---------- Cambio de páginas ---------- */
  
 /* ---------- Iconos del menú y título de cada apartado ----------
@@ -443,30 +431,24 @@ function openNotif(id){
   }
 }
 
-// Aviso / noticia: administrador (para todos o un grupo) y profesores (para sus grupos)
-function publishNotice(){
+// Aviso / noticia: administrador (todo el colegio, un grado completo o algunos grupos) y profesores (para sus grupos)
+async function publishNotice(){
 
   if(!requirePermission("create", "aviso")) return;
 
-  const title = prompt("Título del aviso:");
-  if(title === null || !title.trim()) return;
-  const text = prompt("Mensaje (opcional):", "");
-  if(text === null) return;
+  const mine = getRole() === "profesor" ? teacherGroups() : null;      // el profesor solo avisa a sus grupos
 
-  let groups = null;
-  if(getRole() === "profesor"){
-    groups = teacherGroups();                                  // solo sus grupos
-  }else{
-    const g = prompt("¿Para qué grupo? (ej. 7-1). Déjalo vacío para todos:", "");
-    if(g === null) return;
-    if(g.trim()){
-      const known = window.ADE_CURRICULUM ? ADE_CURRICULUM.groups : [];
-      if(known.length && known.indexOf(g.trim()) === -1) return alert("Ese grupo no existe.");
-      groups = [g.trim()];
-    }
-  }
+  const r = await adeForm({
+    title: "Nuevo aviso", icon: "📢", ok: "Publicar",
+    fields: [
+      {id:"title", label:"Título", type:"text", maxlength:150, required:true, placeholder:"Ej. Izada de bandera el viernes"},
+      {id:"text", label:"Mensaje (opcional)", type:"textarea", maxlength:300, placeholder:"Escribe los detalles del aviso"},
+      {id:"groups", label:"¿Para quién es?", type:"groups", allowed:mine, allowAll:!mine, value:mine || []}
+    ]
+  });
+  if(!r) return;
 
-  notify({type:"aviso", title:title.trim(), text:text.trim(), groups:groups});
+  notify({type:"aviso", title:r.title.trim(), text:(r.text || "").trim(), groups:r.groups.length ? r.groups : null});
   if(typeof showToast === "function") showToast("Aviso publicado", "Ya les aparece en la campanita.", "ok", 3000);
 }
 
@@ -1016,12 +998,12 @@ ensureGreenTheme();
 
 /* ---------- Letra: Arial en TODA la página ----------
    Esta regla gana sobre cualquier otra letra (HTML, otros estilos, ventanas, tablas, botones…).
-   Para cambiar de letra en todo el sitio, cambia solo "Arial,Helvetica,sans-serif". */
+   Para cambiar de letra en todo el sitio, cambia solo "Arimo,Arial,Helvetica,sans-serif". */
 (function(){
   if(document.getElementById("arialEverywhereStyle")) return;
   const st = document.createElement("style");
   st.id = "arialEverywhereStyle";
-  st.textContent = "*,*::before,*::after,input::placeholder,textarea::placeholder{font-family:Arial,Helvetica,sans-serif !important}";
+  st.textContent = "*,*::before,*::after,input::placeholder,textarea::placeholder{font-family:Arimo,Arial,Helvetica,sans-serif !important}";
   document.head.appendChild(st);
 })();
  
@@ -1143,10 +1125,6 @@ function render(){
  
  
 /* ---------- Pantalla pública ---------- */
- 
-function scrollToSection(id){
-  $(id).scrollIntoView({behavior:"smooth"});
-}
  
  
 /* ---------- Arranque ---------- */

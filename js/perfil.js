@@ -135,7 +135,7 @@ async function onPhotoChosen(e){
 async function removePhoto(){
   if(!requirePermission("edit","perfil")) return;
   if(!currentUser || !currentUser.photo) return;
-  if(!confirm("¿Quitar tu foto de perfil?")) return;
+  if(!await adeConfirm("Tu foto se quitará y volverá a verse tu inicial.", {title:"Quitar foto", ok:"Sí, quitar", danger:true})) return;
 
   const r = await guardarPerfilServidor({quitar_foto:"1"});
   if(!r.ok) return alert(r.error);
@@ -271,12 +271,15 @@ function renderProfile(){
   $("pfBirth").value = u.birthdate || "";
   $("pfBirth").max = new Date().toISOString().slice(0, 10);
   $("pfEmail").textContent = u.email || "Sin correo";
+  const emailRow = $("pfEmail").closest(".pf-row");
+  if(emailRow) emailRow.style.display = u.role === "admin" ? "none" : "";   // el administrador no necesita correo
   $("pfGrade").textContent = u.grade || "-";
 
   const noGrade = u.role === "admin";
   $("pfGradeRow").style.display = noGrade ? "none" : "";
 
   renderGuardianRow();     // correo del acudiente (solo estudiantes)
+  updateOwnEmailButton();  // "Verificar" o "Verificado ✓"
 }
 
 /* ---------- Cambiar contraseña (ventana emergente) ---------- */
@@ -339,12 +342,145 @@ async function changePassword(){
 
 /* ---------- Verificar correo (por ahora solo visual) ---------- */
 
+/* ---------- Verificar mi propio correo ----------
+   El botón "Verificar" de la fila Correo manda un código de 6 dígitos al correo de la cuenta. */
+
+let mailBusy = false;
+let mailPendingAt = 0;
+
+function updateOwnEmailButton(){
+  const b = $("pfVerifyBtn");
+  if(!b || !currentUser) return;
+  const ok = !!currentUser.emailVerified;
+  b.textContent = ok ? "Verificado ✓" : "Verificar";
+  b.classList.toggle("ok", ok);
+}
+
+function ensureMailModal(){
+
+  if($("mailModal")) return;
+  ensureGuardianStyle();
+
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.id = "mailModal";
+  modal.innerHTML = `
+    <div class="modal-box pwd-modal">
+      <div class="modal-head">
+        <h3>Verifica tu correo</h3>
+        <button type="button" class="pwd-x" id="mvClose" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="gd-info">Enviamos un código de 6 dígitos a <b id="mvMail"></b>. Escríbelo aquí para confirmar que el correo es tuyo.</p>
+      <div class="field">
+        <label>Código de verificación</label>
+        <input id="mvCode" class="gd-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+      </div>
+      <p class="pwd-msg" id="mvMsg"></p>
+      <button type="button" class="btn pwd-submit" id="mvOk">Verificar</button>
+      <p class="gd-links"><button type="button" id="mvResend">Reenviar código</button></p>
+    </div>`;
+  document.body.appendChild(modal);
+
+  $("mvClose").addEventListener("click", closeMailModal);
+  modal.addEventListener("click", e => { if(e.target === modal) closeMailModal(); });
+  document.addEventListener("keydown", e => { if(e.key === "Escape") closeMailModal(); });
+  $("mvOk").addEventListener("click", confirmMailCode);
+  $("mvResend").addEventListener("click", resendMailCode);
+  $("mvCode").addEventListener("keydown", e => { if(e.key === "Enter") confirmMailCode(); });
+  $("mvCode").addEventListener("input", () => { $("mvCode").value = $("mvCode").value.replace(/\D/g, "").slice(0, 6); });
+}
+
+function openMailModal(){
+  ensureMailModal();
+  $("mvMail").textContent = (currentUser && currentUser.email) || "";
+  $("mvCode").value = "";
+  const msg = $("mvMsg"); msg.textContent = ""; msg.classList.remove("ok");
+  $("mailModal").classList.add("show");
+  setTimeout(() => $("mvCode").focus(), 50);
+}
+
+function closeMailModal(){
+  const m = $("mailModal");
+  if(m) m.classList.remove("show");
+}
+
+function mailMsg(text, ok){
+  const msg = $("mvMsg");
+  if(!msg) return;
+  msg.textContent = text;
+  msg.classList.toggle("ok", !!ok);
+}
+
+async function startMailVerify(){
+
+  if(!currentUser || mailBusy) return;
+  if(currentUser.emailVerified){
+    if(typeof showToast === "function") showToast("Ya está verificado", "Tu correo ya estaba verificado.", "ok", 3500);
+    return;
+  }
+
+  // Si el código se mandó hace poco, solo se vuelve a abrir la ventana
+  if(Date.now() - mailPendingAt < 9 * 60 * 1000) return openMailModal();
+
+  mailBusy = true;
+  const b = $("pfVerifyBtn");
+  if(b){ b.disabled = true; b.textContent = "Enviando…"; }
+
+  const r = await apiPost("api/correo_verificar.php", {paso:"enviar"});
+
+  mailBusy = false;
+  if(b) b.disabled = false;
+  updateOwnEmailButton();
+
+  if(!r.ok) return alert(r.error || "No se pudo enviar el código.");
+
+  if(r.yaVerificado){
+    guardarCuentaDevuelta(r.usuario);
+    updateOwnEmailButton();
+    return;
+  }
+
+  mailPendingAt = Date.now();
+  openMailModal();
+}
+
+async function resendMailCode(){
+
+  if(mailBusy) return;
+  mailBusy = true;
+  const r = await apiPost("api/correo_verificar.php", {paso:"enviar"});
+  mailBusy = false;
+
+  if(!r.ok) return mailMsg(r.error || "No se pudo enviar el código.");
+
+  mailPendingAt = Date.now();
+  mailMsg("Te enviamos un código nuevo.", true);
+}
+
+async function confirmMailCode(){
+
+  if(mailBusy) return;
+
+  const code = $("mvCode").value.trim();
+  if(!/^\d{6}$/.test(code)) return mailMsg("Escribe los 6 dígitos del código.");
+
+  mailBusy = true;
+  const r = await apiPost("api/correo_verificar.php", {paso:"verificar", codigo:code});
+  mailBusy = false;
+
+  if(!r.ok) return mailMsg(r.error || "No se pudo verificar el código.");
+
+  mailPendingAt = 0;
+  guardarCuentaDevuelta(r.usuario);
+  closeMailModal();
+  updateOwnEmailButton();
+  if(typeof showToast === "function") showToast("Correo verificado", "Tu correo quedó confirmado.", "ok", 3500);
+}
+
 function setupVerifyButton(){
   const b = $("pfVerifyBtn");
   if(!b) return;
-  b.addEventListener("click", () => {
-    if(typeof showToast === "function") showToast("Próximamente", "La verificación del correo todavía no está disponible.", "ok", 3500);
-  });
+  b.addEventListener("click", startMailVerify);
 }
 
 /* ---------- Correo del acudiente (solo estudiantes) ----------
@@ -595,7 +731,7 @@ async function removeGuardian(){
 
   if(!requirePermission("edit","perfil")) return;
   if(guardianBusy || !currentUser || !currentUser.guardianEmail) return;
-  if(!confirm("¿Quitar el correo de tu acudiente? Dejará de ver tu agenda.")) return;
+  if(!await adeConfirm("Tu acudiente dejará de ver tu agenda.", {title:"Quitar acudiente", ok:"Sí, quitar", danger:true})) return;
 
   guardianBusy = true;
   const r = await apiPost("api/acudiente_correo.php", {paso:"quitar"});

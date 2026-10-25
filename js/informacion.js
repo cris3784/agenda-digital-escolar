@@ -57,7 +57,7 @@
     .ade-info-box{width:min(760px,100%);max-height:min(86vh,820px);display:flex;flex-direction:column;
       background:#0f1830;color:#e8eef9;border:1px solid rgba(255,255,255,.09);border-radius:16px;
       box-shadow:0 24px 60px rgba(0,0,0,.55);overflow:hidden;text-align:left;
-      font:14.5px/1.55 Arial,Helvetica,sans-serif;
+      font:14.5px/1.55 Arimo,Arial,Helvetica,sans-serif;
       animation:aiPop .28s cubic-bezier(.2,.9,.3,1.1)}
     .ade-info-head{display:flex;align-items:center;gap:12px;padding:15px 20px;background:#0b1326;
       border-bottom:3px solid #25a05d}
@@ -89,7 +89,7 @@
 
     .ai-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
     .ai-btn{width:auto;margin:0;padding:9px 16px;border-radius:9px;border:1px solid #25a05d;background:#25a05d;
-      color:#fff;font:600 13.5px Arial,Helvetica,sans-serif;cursor:pointer;
+      color:#fff;font:600 13.5px Arimo,Arial,Helvetica,sans-serif;cursor:pointer;
       text-decoration:none;display:inline-block}
     .ai-btn:hover{background:#2cb86c}
     .ai-btn.alt{background:transparent;color:#cfe9da}
@@ -123,7 +123,7 @@
 
     .ai-tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
     .ai-tools input,.ai-tools select{flex:1 1 180px;min-width:0;margin:0;padding:9px 11px;border-radius:9px;
-      border:1px solid rgba(255,255,255,.15);background:#0b1326;color:#e8eef9;font:14px Arial,Helvetica,sans-serif}
+      border:1px solid rgba(255,255,255,.15);background:#0b1326;color:#e8eef9;font:14px Arimo,Arial,Helvetica,sans-serif}
     .ai-files{list-style:none;margin:0;padding:0}
     .ai-file{display:flex;gap:12px;align-items:center;padding:10px 12px;margin:0 0 8px;background:#121d38;
       border:1px solid rgba(255,255,255,.09);border-radius:11px}
@@ -135,7 +135,7 @@
 
     .ai-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
     .ai-tab{width:auto;margin:0;padding:8px 15px;border-radius:999px;border:1px solid rgba(255,255,255,.18);
-      background:transparent;color:#cfd8ea;font:600 13px Arial,Helvetica,sans-serif;cursor:pointer}
+      background:transparent;color:#cfd8ea;font:600 13px Arimo,Arial,Helvetica,sans-serif;cursor:pointer}
     .ai-tab[aria-selected="true"]{background:#25a05d;border-color:#25a05d;color:#fff}
     .ai-steps{list-style:none;margin:0;padding:0;counter-reset:paso}
     .ai-steps li{counter-increment:paso;position:relative;margin:0 0 10px;padding:10px 12px 10px 52px;
@@ -236,7 +236,7 @@
         ${acc("No puedo subir un archivo", `<p>Las entregas de los estudiantes pueden pesar hasta 10 MB y los archivos que adjunta un profesor, hasta 5 MB. Si tu archivo es más grande, comprímelo o divídelo.</p>`)}
         ${acc("No veo el botón para crear actividades o la sección Administración", `<p>Cada cargo tiene permisos distintos: las actividades las crean profesores y administrador, y Administración es solo para el administrador.</p>`)}
         ${acc("Necesito cambiar mi grado, mi cargo o mi materia", `<p>Esos datos los cambia el administrador desde <i>Administración → Editar</i>.</p>`)}
-        ${acc("Mis datos no aparecen en otro computador o celular", `<p>La aplicación guarda la información en el navegador que usas. Si cambias de equipo, usas otro navegador o borras los datos del navegador, no verás lo que guardaste en el anterior.</p>`)}
+        ${acc("No veo lo último que se publicó", `<p>Los datos están guardados en el servidor y se ven igual desde cualquier equipo. Si no aparece algo nuevo, recarga la página (F5) o revisa tu conexión a internet.</p>`)}
         <div class="ai-actions">
           <a class="ai-btn" href="${esc(mailtoSoporte())}">${ico("correo")}Escribir al administrador</a>
           ${BTN_FORGOT}${BTN_LOGIN}
@@ -285,7 +285,7 @@
         const todos = [];
         try{
           (typeof activities !== "undefined" ? activities : []).forEach(a => {
-            if(a && a.attachment && a.attachment.data && String(a.attachment.data).indexOf("data:") === 0){
+            if(a && a.attachment && a.attachment.data){
               todos.push({
                 nombre: a.attachment.name || "Archivo",
                 data: a.attachment.data,
@@ -337,10 +337,11 @@
         <p>Cada cuenta de la A.D.E. tiene un <b>correo electrónico</b> que registraste al crearla.</p>
         <h3>Para qué sirve</h3>
         <ul>
-          <li>Recuperar tu contraseña: escribes tu usuario y tu correo, y si coinciden eliges una nueva.</li>
+          <li>Recuperar tu contraseña: la A.D.E. te envía un código de 6 dígitos y con él eliges una nueva.</li>
+          <li>Verificar que el correo es tuyo (botón <i>Verificar</i> en Mi perfil).</li>
           <li>Que el administrador pueda identificar tu cuenta.</li>
         </ul>
-        <p>La aplicación no envía mensajes automáticos, así que no te llegará ningún correo de la A.D.E. Para escribirle al
+        <p>Los correos de la A.D.E. solo traen códigos de verificación. Para escribirle al
         administrador o a un profesor usa tu propio correo.</p>
         <div class="ai-actions">
           <a class="ai-btn" href="${esc(CORREO_URL)}" target="_blank" rel="noopener noreferrer">Abrir mi correo</a>
@@ -506,7 +507,7 @@
       gap:14px !important; width:100% !important; height:auto !important; min-height:0 !important;
       margin:0 !important; padding:8px 10px !important; box-sizing:border-box !important;
       background:transparent !important; border:0 !important; border-radius:14px !important; box-shadow:none !important;
-      color:#fff !important; font:600 15px/1.25 Arial,Helvetica,sans-serif !important; text-align:left !important;
+      color:#fff !important; font:600 15px/1.25 Arimo,Arial,Helvetica,sans-serif !important; text-align:left !important;
       cursor:pointer; transform:none !important; text-decoration:none !important;
       transition:background .15s;
     }

@@ -99,15 +99,6 @@ function ensureCalendarUI(){
       }
       .cal2-today:hover{background:rgba(37,160,93,.3)}
       .cal2-today svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-      .cal2-wico{
-        flex:none;width:62px;height:62px;border-radius:17px;display:grid;place-items:center;color:#fff;
-        background:linear-gradient(150deg,#2d6cf0,#17317f);
-        border:1px solid rgba(110,165,255,.5);
-        box-shadow:0 8px 22px rgba(30,90,220,.35), inset 0 1px 0 rgba(255,255,255,.2);
-      }
-      .cal2-wico svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-      .cal2-welcome h2{margin:0 0 4px;font-size:25px;color:#f2f6ff}
-      .cal2-welcome p{margin:0;font-size:13px;color:#8fb4ee}
       .cal2-add{
         margin-left:auto;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
         padding:10px 18px;border-radius:11px;font-size:13px;font-weight:700;color:#fff;border:0;cursor:pointer;
@@ -272,48 +263,6 @@ function ensureCalendarUI(){
       </div>`;
   }
 
-  // 3) Formulario de eventos
-  if(!document.getElementById("calendarModal")){
-    const modal = document.createElement("div");
-    modal.className = "modal";
-    modal.id = "calendarModal";
-    modal.dataset.auto = "1";
-    modal.innerHTML = `
-      <div class="modal-box">
-        <div class="modal-head">
-          <h2 id="calendarModalTitle">Nuevo evento</h2>
-          <button class="close" onclick="closeCalendarModal()">×</button>
-        </div>
-        <div class="form-grid">
-          <div class="field full">
-            <label>Fecha</label>
-            <input id="calEventDate" type="date">
-          </div>
-          <div class="field full">
-            <label>Título</label>
-            <input id="calEventTitle" placeholder="Ej. Izada de bandera">
-          </div>
-          <div class="field full">
-            <label>Descripción</label>
-            <textarea id="calEventDesc" rows="4" placeholder="Escribe los detalles del evento..."></textarea>
-          </div>
-          <div class="field full">
-            <label>Para quién es</label>
-            <select id="calEventGroup"></select>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn" onclick="saveCalendarEvent()">Guardar</button>
-          <button class="btn secondary" onclick="closeCalendarModal()">Cancelar</button>
-        </div>
-      </div>
-    `;
-    modal.addEventListener("click", function(e){
-      if(e.target === modal) closeCalendarModal();
-    });
-    document.body.appendChild(modal);
-  }
-
 }
 
 ensureCalendarUI();
@@ -474,33 +423,26 @@ function showCalendarDay(key, skipGrid){
  
 /* ---------- Formulario (ventana) ---------- */
  
-// Opciones de "Para quién es": administrador = todos o un grupo; profesor = sus grupos
-function fillCalendarGroups(selected){
-  const sel = document.getElementById("calEventGroup");
-  if(!sel) return;
-  const role = getRole();
-  const mine = role === "profesor" ? teacherGroups() : null;
-  const groups = mine || (window.ADE_CURRICULUM ? ADE_CURRICULUM.groups : []);
-  const all = role === "profesor" ? (mine ? "Todos mis grupos" : "Todos") : "Todos (todo el colegio)";
-  sel.innerHTML = '<option value="">' + all + '</option>' +
-    groups.map(function(g){ return '<option value="' + g + '">Grupo ' + g + '</option>'; }).join("");
-  sel.value = selected || "";
-}
+// Formulario: la misma ventana que "Nuevo aviso" (fecha, título, descripción y para quién es)
+async function openCalendarModal(key, event){
 
-function openCalendarModal(key, event){
-  document.getElementById("calendarModalTitle").textContent = event ? "Editar evento" : "Nuevo evento";
-  document.getElementById("calEventDate").value  = key;
-  document.getElementById("calEventTitle").value = event ? event.title : "";
-  document.getElementById("calEventDesc").value  = event ? (event.desc || "") : "";
-  const one = event && Array.isArray(event.groups) && event.groups.length === 1 ? event.groups[0] : "";
-  fillCalendarGroups(one || (!event && getRole() === "profesor" && teacherGroups() && teacherGroups().length === 1 ? teacherGroups()[0] : ""));
-  document.getElementById("calendarModal").classList.add("show");
-  document.getElementById("calEventTitle").focus();
-}
- 
-function closeCalendarModal(){
-  document.getElementById("calendarModal").classList.remove("show");
-  calendarEditing = null;
+  const role = getRole();
+  const mine = role === "profesor" ? teacherGroups() : null;      // el profesor solo publica para sus grupos
+  const current = event && Array.isArray(event.groups) && event.groups.length ? event.groups : null;
+
+  const r = await adeForm({
+    title: event ? "Editar evento" : "Nuevo evento", icon: "📅", ok: "Guardar",
+    fields: [
+      {id:"date", label:"Fecha", type:"date", value:key, required:true},
+      {id:"title", label:"Título", type:"text", maxlength:150, required:true, value:event ? event.title : "", placeholder:"Ej. Izada de bandera"},
+      {id:"desc", label:"Descripción (opcional)", type:"textarea", maxlength:500, value:event ? (event.desc || "") : "", placeholder:"Escribe los detalles del evento"},
+      {id:"groups", label:"¿Para quién es?", type:"groups", allowed:mine, allowAll:!mine, value:current || mine || []}
+    ],
+    validate: v => /^\d{4}-\d{2}-\d{2}$/.test(v.date) ? "" : "Elige una fecha para el evento."
+  });
+
+  if(!r){ calendarEditing = null; return; }
+  saveCalendarEvent(r);
 }
  
  
@@ -525,33 +467,19 @@ function editCalendarEvent(key, index){
  
 let calendarBusy = false;
 
-async function saveCalendarEvent(){
-  const date  = document.getElementById("calEventDate").value;
-  const title = document.getElementById("calEventTitle").value.trim();
-  const desc  = document.getElementById("calEventDesc").value.trim();
- 
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){
-    alert("Elige una fecha para el evento.");
-    return;
-  }
- 
-  if(!title){
-    alert("Escribe un título para el evento.");
-    return;
-  }
- 
-  // Para quién es el evento
-  const role = getRole();
-  const pick = document.getElementById("calEventGroup") ? document.getElementById("calEventGroup").value : "";
+async function saveCalendarEvent(r0){
+  const date  = r0.date;
+  const title = r0.title.trim();
+  const desc  = (r0.desc || "").trim();
+  const role  = getRole();
+  const groups = r0.groups.length ? r0.groups : null;      // vacío = todo el colegio
+
   const mine = role === "profesor" ? teacherGroups() : null;
-  if(role === "profesor" && pick && mine && !mine.includes(pick)){
+  if(mine && groups && groups.some(g => !mine.includes(g))){
     alert("Solo puedes publicar eventos para tus grupos.");
+    calendarEditing = null;
     return;
   }
-  let groups;
-  if(pick) groups = [pick];
-  else if(mine) groups = mine.slice();       // profesor: todos sus grupos
-  // administrador sin elegir: para todos (sin grupos)
 
   if(calendarBusy) return;
 
@@ -570,11 +498,11 @@ async function saveCalendarEvent(){
 
   calendarBusy = true;
   const r = await apiPost("api/evento_guardar.php", {
-    accion: isNew ? "crear" : "editar", id:id, fecha:date, titulo:title, desc:desc, groups: groups || null
+    accion: isNew ? "crear" : "editar", id:id, fecha:date, titulo:title, desc:desc, groups: groups
   });
   calendarBusy = false;
 
-  if(!r.ok) return alert(r.error || "No se pudo guardar el evento.");
+  if(!r.ok){ calendarEditing = null; return alert(r.error || "No se pudo guardar el evento."); }
 
   // Aviso en la campanita para los que les corresponde
   if(typeof notify === "function"){
@@ -593,7 +521,7 @@ async function saveCalendarEvent(){
   calendarCursor = new Date(Number(p[0]), Number(p[1])-1, 1);
   selectedCalendarDay = date;
  
-  closeCalendarModal();
+  calendarEditing = null;
   await cargarEventosServidor();
   renderCalendar();
 }
@@ -603,7 +531,7 @@ async function deleteCalendarEvent(key, index){
   const event = calendarEvents[key]?.[index];
   if(!event) return;
   if(!canManageEvent(event)) return denyPermission();      // el profesor no borra lo del administrador
-  if(!confirm("¿Eliminar este evento del calendario?")) return;
+  if(!await adeConfirm("Se eliminará este evento del calendario.", {title:"Eliminar evento", ok:"Sí, eliminar", danger:true})) return;
 
   const r = await apiPost("api/evento_guardar.php", {accion:"borrar", id:event.id});
   if(!r.ok) return alert(r.error || "No se pudo borrar el evento.");

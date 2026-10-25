@@ -8,10 +8,10 @@
      1) Pantalla negra: el icono A.D.E. aparece como una sombra tenue
      2) Llega la niebla; con el golpe salen los pinchos y la sombra se va rápido
      3) BOOM: aparece la cara de Sukuna (4 ojos + mandíbula) con líneas de velocidad
-     4) Santuario oscuro (silueta negra)
-     5) El santuario se ve (destello)
-     6) Cortes blancos sobre pantalla negra
-     7) Vuelve a mostrarse el santuario y sale el icono A.D.E. (sin zoom)
+     4) Aparece el santuario LEJOS como sombra y con el golpe se pone a color
+     5) Cortes blancos sobre pantalla negra (el santuario no se ve)
+     6) Termina el corte: pantalla negra
+     7) El santuario aparece CERCA (golpe) y sale el icono A.D.E. (sin zoom)
      8) Título y desvanecido hacia la página
 
    ► USO EN TU PÁGINA: solo necesitas este archivo.
@@ -139,12 +139,20 @@
       [T.dark-.03,"opacity:1;transform:scale(1.015)"],
       [T.dark,"opacity:0;transform:scale(1.04)"]
     ]),
-    // escena: aparece como silueta, se corta a negro con los cortes y vuelve
+    // escena: tras la cara aparece el santuario LEJOS (sombra y luego a color); en los cortes no se ve (pantalla negra);
+    // al terminar los cortes (golpe "show") aparece CERCA y sale el icono
     kf("inSceneT", [
       [T.dark-.001,"opacity:0"],[T.dark+.08,"opacity:1"],
       [CUTS[0]-.001,"opacity:1"],[CUTS[0]+.015,"opacity:0"],
       [T.show-.001,"opacity:0"],[T.show+.04,"opacity:1"]
     ]),
+    // lejos: pequeño hasta los cortes; durante la pantalla negra queda en tamaño normal (cerca)
+    kf("inFarT", [
+      [T.dark-.001,"transform:scale(.5)"],
+      [CUTS[0]-.01,"transform:scale(.5)"],
+      [CUTS[0]+.015,"transform:scale(1)"]
+    ]),
+    // brasas: se apagan con los cortes y vuelven con el santuario cercano
     kf("inEmbT", [
       [CUTS[0]-.001,"opacity:1"],[CUTS[0]+.015,"opacity:0"],
       [T.show-.001,"opacity:0"],[T.show+.1,"opacity:1"]
@@ -183,7 +191,7 @@
       border-radius:18px; border:1px solid rgba(35,160,90,.7);
       background:linear-gradient(165deg,rgba(11,58,77,.92),rgba(3,12,32,.95));
       box-shadow:0 0 40px rgba(35,160,90,.25), 0 0 70px rgba(51,222,142,.2), inset 0 0 30px rgba(51,222,142,.08);
-      font-family:Arial,Helvetica,sans-serif;
+      font-family:Arimo,Arial,Helvetica,sans-serif;
       animation:inReadyIn .6s ease both;
     }
     @keyframes inReadyIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
@@ -212,7 +220,7 @@
     #introEntrada .in-win-btn{
       width:100%; padding:16px 20px; border:0; border-radius:12px; cursor:pointer;
       background:linear-gradient(180deg,#2bb56d,#1c8c55); color:#fff;
-      font:700 18px/1 Arial,Helvetica,sans-serif; letter-spacing:1px;
+      font:700 18px/1 Arimo,Arial,Helvetica,sans-serif; letter-spacing:1px;
       box-shadow:0 6px 18px rgba(35,160,90,.4);
       transition:transform .15s ease, filter .15s ease;
     }
@@ -238,6 +246,7 @@
     #introEntrada .in-svg{
       position:absolute; inset:0; width:100%; height:100%;
       overflow:visible;
+      animation:inFarT ${TL}s linear both;
     }
 
     #introEntrada .in-island{animation:inRise 1.3s cubic-bezier(.2,.8,.2,1) ${T.dark}s both}
@@ -245,7 +254,7 @@
     #introEntrada .in-temple{animation:inUp 1.2s ease ${T.dark+.1}s both}
     @keyframes inUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
 
-    /* silueta negra: se apaga cuando el santuario "se ve" */
+    /* silueta negra: el santuario sale lejos como sombra y se pone a color con el golpe "reveal" */
     #introEntrada .in-sil{animation:inSil .4s ease ${T.reveal}s forwards}
     @keyframes inSil{to{opacity:0}}
 
@@ -355,7 +364,7 @@
     }
     #introEntrada .in-title b{
       display:block;
-      font-family:Arial,Helvetica,sans-serif;
+      font-family:Arimo,Arial,Helvetica,sans-serif;
       font-weight:700; font-size:clamp(24px,4.4vw,50px); line-height:1.1;
       color:#eafbf3;
       text-shadow:0 0 20px rgba(49,222,141,.85), 0 0 34px rgba(35,160,90,.55), 0 3px 0 #020f26, 0 0 3px #000;
@@ -390,7 +399,7 @@
       position:absolute; left:50%; bottom:22px; transform:translateX(-50%); z-index:3;
       padding:8px 12px; border:0; border-radius:0; background:none; box-shadow:none;
       color:rgba(212,248,231,.5); cursor:pointer;
-      font:400 12px/1 Arial,Helvetica,sans-serif; letter-spacing:2px; text-transform:lowercase;
+      font:400 12px/1 Arimo,Arial,Helvetica,sans-serif; letter-spacing:2px; text-transform:lowercase;
       display:flex; align-items:center; gap:6px;
       -webkit-tap-highlight-color:transparent;
       transition:color .2s ease;
@@ -698,17 +707,32 @@
     document.body.appendChild(overlay);
     document.documentElement.style.overflow = "hidden";
 
-    // Garras de humo (suben con la niebla)
+    // Garras de humo (suben con la niebla).
+    // Su tamaño sigue el ancho de la pantalla (no se estiran): en celular o ventana chica
+    // salen menos y más pequeñas; en pantalla grande, más y más grandes.
     const spikes = overlay.querySelector(".in-spikes");
-    const nSp = 16;
-    for(let i = 0; i < nSp; i++){
-      const w = 1200 / nSp, x0 = i * w + rnd(-12,12), h = rnd(110,330);
-      const tip = x0 + w * rnd(.3,.7) + rnd(-35,35);
+    const MAX_SP = 24;
+    const spikeData = [];
+    for(let i = 0; i < MAX_SP; i++){
       const p = document.createElementNS(SVGNS, "path");
-      p.setAttribute("d", "M" + x0.toFixed(1) + " 612 L" + tip.toFixed(1) + " " + (600 - h).toFixed(1) +
-                          " L" + (x0 + w * rnd(1.1,1.6)).toFixed(1) + " 612Z");
       p.style.setProperty("--d", (T.spikes + Math.random() * .7).toFixed(2) + "s");
       spikes.appendChild(p);
+      spikeData.push({ el:p, j:rnd(-.1,.1), tip:rnd(.3,.7), tj:rnd(-.3,.3), r:rnd(1.1,1.6), h:rnd(1.2,3.2) });
+    }
+    function layoutSpikes(){
+      const W = window.innerWidth, H = window.innerHeight;
+      spikes.setAttribute("viewBox", "0 0 " + W + " " + H);
+      const n = Math.max(6, Math.min(MAX_SP, Math.round(W / 110)));
+      const w = W / n, hmax = H * .45;
+      spikeData.forEach(function(s, i){
+        if(i >= n){ s.el.setAttribute("display", "none"); return; }
+        s.el.removeAttribute("display");
+        const x0 = i * w + s.j * w;
+        const h = Math.min(w * s.h, hmax);
+        const tip = x0 + w * s.tip + s.tj * w;
+        s.el.setAttribute("d", "M" + x0.toFixed(1) + " " + (H + 12) + " L" + tip.toFixed(1) + " " + (H - h).toFixed(1) +
+                               " L" + (x0 + w * s.r).toFixed(1) + " " + (H + 12) + "Z");
+      });
     }
 
     // Cortes blancos, uno por golpe (sobre pantalla negra)
@@ -744,6 +768,7 @@
       const portrait = window.innerWidth / window.innerHeight < 0.9;
       sceneSvg.setAttribute("viewBox", portrait ? "250 0 700 600" : "0 0 1200 600");
       faceEl.setAttribute("viewBox", portrait ? "270 0 660 600" : "0 0 1200 600");
+      layoutSpikes();
     }
     fit();
     window.addEventListener("resize", fit);

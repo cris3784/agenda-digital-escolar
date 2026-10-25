@@ -462,6 +462,46 @@ function guardarUsuarioLocal(datos){
 let loginBusy = false;
 
 // fail(texto) decide cómo mostrar el error (alert o mensaje en pantalla)
+/* ---------- Dejar los formularios vacíos ---------- */
+
+// Ingreso: el de la portada (derecha) y el de la ventana
+function clearLoginFields(){
+  ["quickLoginUser","quickLoginPass","loginUser","loginPass"].forEach(id => {
+    const el = $(id);
+    if(el) el.value = "";
+  });
+  const msg = $("loginMessage");
+  if(msg) msg.textContent = "";
+}
+
+// Registro: todos los campos, el código y las materias/grupos del profesor
+function clearRegisterForm(){
+  ["regName","regLastName","regBirth","regUser","regEmail","regPass","regPass2","regCode","regGroups"].forEach(id => {
+    const el = $(id);
+    if(el) el.value = "";
+  });
+  ["regRole","regGrade","regSubject"].forEach(id => {
+    const el = $(id);
+    if(el) el.value = "";
+  });
+  if(typeof resetRegSubjects === "function") resetRegSubjects();
+  if(typeof toggleRegSubject === "function") toggleRegSubject();
+  resetRegCodeStep();
+}
+
+// Que el navegador no vuelva a llenar solo estos campos
+(function(){
+  ["quickLoginUser","loginUser","regName","regLastName","regUser","regEmail"].forEach(id => {
+    const el = $(id);
+    if(el) el.setAttribute("autocomplete", "off");
+  });
+  ["quickLoginPass","loginPass","regPass","regPass2"].forEach(id => {
+    const el = $(id);
+    if(el) el.setAttribute("autocomplete", "new-password");
+  });
+})();
+
+
 async function doLogin(userId, passId, fail){
 
   if(loginBusy) return;
@@ -486,6 +526,7 @@ async function doLogin(userId, passId, fail){
 
   currentUser = user;
   localStorage.setItem("ade_current_user", JSON.stringify(user));
+  clearLoginFields();                  // el ingreso queda vacío
   await cargarUsuariosServidor();      // trae del servidor las cuentas que este usuario puede ver
   enterApp();
 
@@ -727,9 +768,10 @@ async function confirmRegister(){
   say("Cuenta creada correctamente. Ahora puedes iniciar sesión.");
   showToast("¡Cuenta creada!", "Tu correo quedó verificado, " + name + ". Ahora inicia sesión.", "ok");
 
+  clearRegisterForm();                 // el registro queda vacío
+  clearLoginFields();
+
   setTimeout(() => {
-    const loginUser = $("loginUser");
-    if(loginUser) loginUser.value = username;
     if(message) message.style.color = "";
     showLogin();
   }, 1000);
@@ -1239,7 +1281,7 @@ function logout(){
   if(typeof setPageTitle === "function") setPageTitle("inicio");
   else if(title) title.textContent = "Inicio";
 
-  ["loginUser","loginPass"].forEach(id => { const el = $(id); if(el) el.value = ""; });
+  clearLoginFields();
 
   showLogin();
 }

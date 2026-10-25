@@ -61,35 +61,6 @@ function isValidEmail(email){
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// ¿Ya hay otra cuenta con ese correo? (skipIndex = cuenta que se está editando)
-function emailTaken(email, skipIndex = -1){
-  return users.some((u, i) => i !== skipIndex &&
-    String(u?.email || "").toLowerCase() === email.toLowerCase());
-}
-
-// A las cuentas que no tienen correo se les crea uno básico: usuario@gmail.com
-function ensureUserEmails(){
-
-  let changed = false;
-
-  users.forEach((u, i) => {
-    if(!u || u.email) return;
-
-    let base = String(u.username || "").toLowerCase().replace(/[^a-z0-9._-]/g, "") || ("usuario" + (i + 1));
-    let email = base + "@gmail.com";
-    let n = 2;
-    while(emailTaken(email, i)) email = base + (n++) + "@gmail.com";
-
-    u.email = email;
-    changed = true;
-  });
-
-  if(changed) saveUsers();
-}
-
-ensureUserEmails();
-
-
 /* ---------- Materia de los profesores ---------- */
 
 // Llena un <select> con las materias; si la materia del usuario ya no está en la lista, también se muestra.
@@ -120,7 +91,7 @@ function renderAdminUsers(){
       <td data-label="#">${i + 1}</td>
       <td data-label="Nombre">${escapeHtml(u.name || "")}</td>
       <td data-label="Usuario">${escapeHtml(u.username || "")}</td>
-      <td data-label="Correo">${escapeHtml(u.email || "")}</td>
+      <td data-label="Correo">${u.role === "admin" ? "—" : escapeHtml(u.email || "")}</td>
       <td data-label="Rol">${ROLE_LABELS[u.role] || "Estudiante"}</td>
       <td data-label="Materia">${u.role === "profesor" ? escapeHtml(teacherSubjectsText(u) || "Sin materia") : "—"}</td>
       <td data-label="Grado">${u.role === "admin" ? "—" : escapeHtml((u.role === "profesor" && teacherGroups(u) ? teacherGroups(u).join(", ") : u.grade) || "")}</td>
@@ -144,7 +115,7 @@ async function deleteRegisteredUser(index){
   const user = users[index];
   if(!user || user.role === "admin") return;
   if(!user.codigo) return alert("Esta cuenta no viene del servidor. Recarga la página (F5) e intenta de nuevo.");
-  if(!confirm(`¿Eliminar la cuenta de ${user.name || user.username}?`)) return;
+  if(!await adeConfirm(`Se eliminará la cuenta de ${user.name || user.username}. Esta acción no se puede deshacer.`, {title:"Eliminar cuenta", ok:"Sí, eliminar", danger:true})) return;
 
   const r = await apiPost("api/usuario_borrar.php", {rol:user.role, codigo:user.codigo});
   if(!r.ok) return alert(r.error || "No se pudo eliminar la cuenta.");
@@ -260,6 +231,8 @@ function openUserEditor(index){
   $("editUserUsername").value = u.username || "";
   $("editUserUsername").disabled = isAdminAcc;          // el usuario "admin" no cambia
   $("editUserEmail").value = u.email || "";
+  const emailField = $("editUserEmail").closest(".field");
+  if(emailField) emailField.style.display = isAdminAcc ? "none" : "";      // el administrador no necesita correo
   $("editUserPass").value = "";
   $("editUserMessage").textContent = "";
 
@@ -306,14 +279,14 @@ async function saveEditedUser(){
 
   const name = $("editUserName").value.trim();
   const username = isAdminAcc ? user.username : $("editUserUsername").value.trim();
-  const email = $("editUserEmail").value.trim();
+  const email = isAdminAcc ? String(user.email || "") : $("editUserEmail").value.trim();
   const grade = role === "estudiante" ? $("editUserGrade").value : "";
   const pass = $("editUserPass").value;
   const subject = role === "profesor" ? $("editUserSubject").value : "";
 
   if(!user.codigo) return say("Esta cuenta no viene del servidor. Recarga la página (F5) e intenta de nuevo.");
-  if(!name || !username || !email) return say("Nombre, usuario y correo son obligatorios.");
-  if(!isValidEmail(email)) return say("Escribe un correo válido (ej. nombre@gmail.com).");
+  if(!name || !username || (!isAdminAcc && !email)) return say("Nombre, usuario y correo son obligatorios.");
+  if(!isAdminAcc && !isValidEmail(email)) return say("Escribe un correo válido (ej. nombre@gmail.com).");
   if(role === "profesor" && !subject) return say("Elige la materia que dicta el profesor.");
   if(pass && pass.length < 6) return say("La contraseña nueva debe tener mínimo 6 caracteres.");
 
