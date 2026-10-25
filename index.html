@@ -308,30 +308,24 @@
 
     <div id="forgotForm" style="display:none">
       <h2>Recuperar contraseña</h2>
-      <p class="auth-subtitle">Escribe tu usuario y el correo de tu cuenta</p>
+      <p class="auth-subtitle">Escribe el correo de tu cuenta y te enviaremos un código</p>
 
       <div id="forgotStep1">
         <div class="auth-field">
-          <label>Usuario</label>
-          <input id="forgotUser" type="text" placeholder="Tu usuario">
-        </div>
-        <div class="auth-field">
           <label>Correo</label>
-          <input id="forgotEmail" type="email" placeholder="correo@gmail.com">
+          <input id="forgotEmail" type="email" placeholder="correo@gmail.com" autocomplete="email">
         </div>
-        <button class="auth-btn" onclick="verifyForgot()">Continuar</button>
+        <button class="auth-btn" onclick="sendForgotCode()">Enviar código</button>
       </div>
 
       <div id="forgotStep2" style="display:none">
+        <p class="code-info">Enviamos un código de 6 dígitos a <b id="forgotMailShow"></b></p>
         <div class="auth-field">
-          <label>Nueva contraseña</label>
-          <input id="forgotPass" type="password" placeholder="Crea una contraseña nueva">
+          <label>Código de verificación</label>
+          <input id="forgotCode" class="code-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
         </div>
-        <div class="auth-field">
-          <label>Confirmar contraseña</label>
-          <input id="forgotPass2" type="password" placeholder="Repite la contraseña">
-        </div>
-        <button class="auth-btn" onclick="saveForgotPassword()">Guardar contraseña</button>
+        <button class="auth-btn" onclick="confirmForgotCode()">Verificar y entrar</button>
+        <p class="code-links"><button onclick="resendForgotCode()">Reenviar código</button> · <button onclick="backForgot()">Cambiar correo</button></p>
       </div>
 
       <p id="forgotMessage" class="auth-message"></p>
@@ -342,6 +336,7 @@
       <h2>Crear cuenta</h2>
       <p class="auth-subtitle">Regístrate en tu agenda escolar</p>
 
+      <div id="regStep1">
       <div class="reg-grid">
         <div class="auth-field full">
           <label>Nombre</label>
@@ -361,6 +356,7 @@
             <option value="">Selecciona</option>
             <option value="estudiante">Estudiante</option>
             <option value="profesor">Profesor</option>
+            <option value="acudiente">Acudiente</option>
           </select>
         </div>
         <div class="auth-field">
@@ -394,6 +390,18 @@
       </div>
 
       <button class="auth-btn" onclick="registerUser()">Crear cuenta</button>
+      </div>
+
+      <div id="regStep2" style="display:none">
+        <p class="code-info">Enviamos un código de 6 dígitos a <b id="regMailShow"></b>. Escríbelo para terminar de crear tu cuenta.</p>
+        <div class="auth-field">
+          <label>Código de verificación</label>
+          <input id="regCode" class="code-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+        </div>
+        <button class="auth-btn" onclick="confirmRegister()">Verificar y crear cuenta</button>
+        <p class="code-links"><button onclick="resendRegisterCode()">Reenviar código</button> · <button onclick="backRegister()">Cambiar mis datos</button></p>
+      </div>
+
       <p id="registerMessage" class="auth-message"></p>
       <p class="switch-auth">¿Ya tienes una cuenta? <button onclick="showLogin()">Iniciar sesión</button></p>
     </div>
