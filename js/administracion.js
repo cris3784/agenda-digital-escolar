@@ -21,7 +21,7 @@ if(!users.some(u => String(u?.username || "").toLowerCase() === "admin")){
   users.unshift(defaultAdmin);
 }
 
-const ROLE_LABELS = {admin:"Admin", profesor:"Profesor", estudiante:"Estudiante"};
+const ROLE_LABELS = {admin:"Admin", profesor:"Profesor", estudiante:"Estudiante", acudiente:"Acudiente"};
 
 function saveUsers(){
   localStorage.setItem("ade_users", JSON.stringify(users));
@@ -127,7 +127,7 @@ function renderAdminUsers(){
       <td data-label="Creado">${escapeHtml(u.createdAt || "")}</td>
       <td>
         <div class="ibtn-row">
-          ${ibtn("edit", "Editar usuario", `openUserEditor(${i})`)}
+          ${u.role === "acudiente" ? ibtn("lock", "Se edita desde su perfil", "") : ibtn("edit", "Editar usuario", `openUserEditor(${i})`)}
           ${u.role === "admin"
             ? ibtn("lock", "Cuenta protegida", "")
             : ibtn("trash", "Eliminar usuario", `deleteRegisteredUser(${i})`)}
@@ -256,7 +256,7 @@ function openUserEditor(index){
   editingUserIndex = index;
   const isAdminAcc = u.role === "admin";
 
-  $("editUserName").value = u.name || "";
+  $("editUserName").value = (u.firstName !== undefined ? u.firstName : u.name) || "";   // los apellidos los cambia cada persona en Mi perfil
   $("editUserUsername").value = u.username || "";
   $("editUserUsername").disabled = isAdminAcc;          // el usuario "admin" no cambia
   $("editUserEmail").value = u.email || "";

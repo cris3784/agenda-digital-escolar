@@ -250,6 +250,7 @@ function showForm(mode){
 
   if(mode === "forgot") resetForgotForm();
   if(mode === "register"){
+    resetRegCodeStep();
     fillSubjectSelect($("regSubject"), "");   // las materias pueden haber cambiado
     resetRegSubjects();
     toggleRegSubject();
@@ -349,6 +350,8 @@ function toggleRegSubject(){
   if($("regGroupsField")) $("regGroupsField").style.display = isTeacher ? "" : "none";
   const gradeBox = $("regGrade") && $("regGrade").closest(".auth-field");
   if(gradeBox) gradeBox.style.display = isTeacher ? "none" : "";   // el profesor usa "Grupos"
+  const gradeLabel = gradeBox && gradeBox.querySelector("label");
+  if(gradeLabel) gradeLabel.textContent = role.value === "acudiente" ? "Grado de tu hijo(a)" : "Grado";
 }
 
 function showLogin(){ showForm("login"); }
@@ -605,6 +608,7 @@ ensureAuthStyle();
 /* ---------- Registro ---------- */
 
 let registerBusy = false;
+let regPayload = null;
 
 async function registerUser(){
 
@@ -626,7 +630,7 @@ async function registerUser(){
   if(pass !== pass2) return say("Las contraseñas no coinciden.");
 
   // Nadie se hace administrador por su cuenta; esas cuentas las crea el administrador.
-  if(role !== "estudiante" && role !== "profesor") return say("Elige si eres estudiante o profesor.");
+  if(role !== "estudiante" && role !== "profesor" && role !== "acudiente") return say("Elige si eres estudiante, profesor o acudiente.");
 
   // Profesor: una o más materias y los grupos que atiende
   let mySubjects = [], myGroups = [];
@@ -645,17 +649,83 @@ async function registerUser(){
   if(registerBusy) return;
   registerBusy = true;
 
-  const r = await apiPost("api/registro.php", {
+  regPayload = {
     nombre: name, apellidos: lastName, nacimiento: birth, tipo: role, usuario: username, correo: email, clave: pass,
     grupo: isTeacher ? "" : grade, materias: mySubjects, grupos: myGroups
-  });
+  };
+
+  const r = await apiPost("api/registro.php", regPayload);
 
   registerBusy = false;
-  if(!r.ok) return say(r.error || "No se pudo crear la cuenta.");
+  if(!r.ok) return say(r.error || "No se pudo enviar el código.");
 
+  showRegCodeStep(email);
+}
+
+
+/* ---------- Código de verificación del registro ----------
+   Paso 1: se llenan los datos y el servidor manda un código de 6 dígitos al correo.
+   Paso 2: se escribe el código; solo entonces se crea la cuenta. */
+
+function showRegCodeStep(email){
+  const s1 = $("regStep1"), s2 = $("regStep2");
+  if(s1) s1.style.display = "none";
+  if(s2) s2.style.display = "block";
+  if($("regMailShow")) $("regMailShow").textContent = email;
+  const code = $("regCode");
+  if(code){ code.value = ""; code.focus(); }
+  const message = $("registerMessage");
+  if(message){ message.style.color = ""; message.textContent = ""; }
+}
+
+function resetRegCodeStep(){
+  regPayload = null;
+  const s1 = $("regStep1"), s2 = $("regStep2");
+  if(s1) s1.style.display = "";
+  if(s2) s2.style.display = "none";
+  if($("regCode")) $("regCode").value = "";
+}
+
+function backRegister(){
+  const s1 = $("regStep1"), s2 = $("regStep2");
+  if(s1) s1.style.display = "";
+  if(s2) s2.style.display = "none";
+  const message = $("registerMessage");
+  if(message){ message.style.color = ""; message.textContent = ""; }
+}
+
+async function resendRegisterCode(){
+  const message = $("registerMessage");
+  const say = (text, ok) => { if(message){ message.style.color = ok ? "#9ff0c4" : ""; message.textContent = text; } };
+  if(!regPayload) return backRegister();
+  if(registerBusy) return;
+  registerBusy = true;
+  const r = await apiPost("api/registro.php", regPayload);
+  registerBusy = false;
+  if(!r.ok) return say(r.error || "No se pudo enviar el código.");
+  say("Te enviamos un código nuevo.", true);
+}
+
+async function confirmRegister(){
+
+  const message = $("registerMessage");
+  const say = text => { if(message){ message.style.color = ""; message.textContent = text; } };
+
+  if(!regPayload) return backRegister();
+  const code = ($("regCode").value || "").trim();
+  if(!/^\d{6}$/.test(code)) return say("Escribe el código de 6 dígitos que llegó a tu correo.");
+  if(registerBusy) return;
+
+  registerBusy = true;
+  const r = await apiPost("api/registro.php", {paso:"confirmar", correo:regPayload.correo, codigo:code});
+  registerBusy = false;
+
+  if(!r.ok) return say(r.error || "No se pudo verificar el código.");
+
+  const username = regPayload.usuario, name = regPayload.nombre;
   if(message) message.style.color = "#dfe5f1";
   say("Cuenta creada correctamente. Ahora puedes iniciar sesión.");
-  showToast("¡Cuenta creada!", "Ya estás registrado, " + name + ". Ahora inicia sesión.", "ok");
+  showToast("¡Cuenta creada!", "Tu correo quedó verificado, " + name + ". Ahora inicia sesión.", "ok");
 
   setTimeout(() => {
     const loginUser = $("loginUser");
@@ -667,23 +737,19 @@ async function registerUser(){
 
 
 /* ---------- Olvidé mi contraseña ----------
-   Paso 1: se escribe el usuario y el correo; el servidor revisa que sean de la misma cuenta.
-   Paso 2: se elige una contraseña nueva (el servidor deja 10 minutos para hacerlo).
-   No se envía ningún correo. */
+   Paso 1: se escribe el correo y el servidor manda un código de 6 dígitos.
+   Paso 2: se escribe el código; si es correcto, la persona entra a su cuenta
+           y le aparece la ventana para crear una contraseña nueva. */
 
 let forgotBusy = false;
+let forgotMail = "";
 
 function resetForgotForm(){
   forgotBusy = false;
-  const fu = $("forgotUser");
-  if(fu){
-    fu.placeholder = "Tu usuario";
-    const lab = fu.closest(".auth-field") && fu.closest(".auth-field").querySelector("label");
-    if(lab) lab.textContent = "Usuario";
-  }
+  forgotMail = "";
   const sub = document.querySelector("#forgotForm .auth-subtitle");
-  if(sub) sub.textContent = "Escribe tu usuario y el correo de tu cuenta";
-  ["forgotUser","forgotEmail","forgotPass","forgotPass2"].forEach(id => { const el = $(id); if(el) el.value = ""; });
+  if(sub) sub.textContent = "Escribe el correo de tu cuenta y te enviaremos un código";
+  ["forgotEmail","forgotCode"].forEach(id => { const el = $(id); if(el) el.value = ""; });
   const step1 = $("forgotStep1"), step2 = $("forgotStep2");
   if(step1) step1.style.display = "block";
   if(step2) step2.style.display = "none";
@@ -691,60 +757,240 @@ function resetForgotForm(){
   if(message){ message.textContent = ""; message.style.color = ""; }
 }
 
-async function verifyForgot(){
+function backForgot(){
+  const step1 = $("forgotStep1"), step2 = $("forgotStep2");
+  if(step1) step1.style.display = "block";
+  if(step2) step2.style.display = "none";
+  const message = $("forgotMessage");
+  if(message){ message.textContent = ""; message.style.color = ""; }
+}
+
+async function requestForgotCode(email, resend){
 
   const message = $("forgotMessage");
-  const say = text => { if(message){ message.style.color = ""; message.textContent = text; } };
+  const say = (text, ok) => { if(message){ message.style.color = ok ? "#9ff0c4" : ""; message.textContent = text; } };
 
-  const username = $("forgotUser").value.trim();
-  const email = $("forgotEmail").value.trim();
-
-  if(!username || !email) return say("Escribe tu usuario y el correo de tu cuenta.");
+  if(!isValidEmail(email)) return say("Escribe un correo válido (ej. nombre@gmail.com).");
   if(forgotBusy) return;
 
   forgotBusy = true;
-  const r = await apiPost("api/recuperar.php", {paso:"verificar", usuario:username, correo:email});
+  const r = await apiPost("api/recuperar.php", {paso:"enviar", correo:email});
   forgotBusy = false;
 
-  if(!r.ok) return say(r.error || "No se pudo verificar la cuenta.");
+  if(!r.ok) return say(r.error || "No se pudo enviar el código.");
 
+  forgotMail = email;
+  if($("forgotMailShow")) $("forgotMailShow").textContent = email;
   $("forgotStep1").style.display = "none";
   $("forgotStep2").style.display = "block";
-  say("");
+  const sub = document.querySelector("#forgotForm .auth-subtitle");
+  if(sub) sub.textContent = "Revisa tu correo (y la carpeta de spam)";
+  const code = $("forgotCode");
+  if(code){ code.value = ""; code.focus(); }
+  say(resend ? "Te enviamos un código nuevo." : "", resend);
 }
 
-async function saveForgotPassword(){
+function sendForgotCode(){
+  requestForgotCode($("forgotEmail").value.trim(), false);
+}
+
+function resendForgotCode(){
+  requestForgotCode(forgotMail || $("forgotEmail").value.trim(), true);
+}
+
+async function confirmForgotCode(){
 
   const message = $("forgotMessage");
   const say = text => { if(message){ message.style.color = ""; message.textContent = text; } };
 
-  const pass = $("forgotPass").value;
-  const pass2 = $("forgotPass2").value;
-
-  if(!pass || !pass2) return say("Escribe la nueva contraseña dos veces.");
-  if(pass.length < 6) return say("La nueva contraseña debe tener mínimo 6 caracteres.");
-  if(pass !== pass2) return say("Las contraseñas no coinciden.");
+  const code = ($("forgotCode").value || "").trim();
+  if(!/^\d{6}$/.test(code)) return say("Escribe el código de 6 dígitos que llegó a tu correo.");
   if(forgotBusy) return;
 
-  const username = $("forgotUser").value.trim();
-
   forgotBusy = true;
-  const r = await apiPost("api/recuperar.php", {paso:"cambiar", nueva:pass});
+  const r = await apiPost("api/recuperar.php", {paso:"verificar", correo:forgotMail, codigo:code});
   forgotBusy = false;
 
-  if(!r.ok) return say(r.error || "No se pudo cambiar la contraseña.");
+  if(!r.ok) return say(r.error || "No se pudo verificar el código.");
 
-  if(message){
-    message.style.color = "#dfe5f1";
-    message.textContent = "Contraseña cambiada. Ya puedes iniciar sesión.";
+  // El código era correcto: se entra a la cuenta igual que al iniciar sesión
+  const user = guardarUsuarioLocal(r.usuario);
+  currentUser = user;
+  localStorage.setItem("ade_current_user", JSON.stringify(user));
+  await cargarUsuariosServidor();
+  enterApp();
+
+  showToast("¡Hola, " + (user.name || user.username) + "!", "Tu código era correcto. Ahora crea tu contraseña nueva.", "ok", 4500, user.photo || "");
+  showForcedPasswordChange();
+}
+
+
+/* ---------- Ventana "Crea tu contraseña nueva" (después de entrar con el código) ----------
+   Se dibuja sola, con los colores de la página. No tiene botón para cerrarla:
+   hay que elegir la contraseña nueva (o cerrar sesión). */
+
+function ensureForcedPassStyle(){
+  if(document.getElementById("forcedPassStyle")) return;
+  const st = document.createElement("style");
+  st.id = "forcedPassStyle";
+  st.textContent = `
+    #forcedPass{
+      position:fixed; inset:0; z-index:2147481000;
+      display:grid; place-items:center; padding:18px; overflow:auto;
+      background:rgba(2,8,22,.82); backdrop-filter:blur(6px);
+      font-family:Arial,Helvetica,sans-serif;
+    }
+    #forcedPass .fp-card{
+      width:min(430px,100%); box-sizing:border-box; padding:30px 28px 24px; border-radius:20px;
+      color:#eef4ff; text-align:center;
+      background:linear-gradient(165deg,rgba(11,58,77,.98),rgba(4,14,34,.98));
+      border:1px solid rgba(35,160,90,.65);
+      box-shadow:0 18px 50px rgba(0,0,0,.55), 0 0 34px rgba(35,160,90,.22);
+      animation:fpIn .4s cubic-bezier(.2,.9,.25,1.1) both;
+    }
+    @keyframes fpIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+    #forcedPass .fp-icon{
+      width:62px; height:62px; margin:0 auto 14px; border-radius:50%;
+      display:grid; place-items:center; background:rgba(35,160,90,.16);
+      border:2px solid #23a05a; box-shadow:0 0 22px rgba(46,230,160,.3);
+    }
+    #forcedPass h2{margin:0 0 8px; font-size:23px; color:#fff}
+    #forcedPass .fp-text{margin:0 0 20px; font-size:14px; line-height:1.5; color:#b9cbe6}
+    #forcedPass .fp-field{text-align:left; margin-bottom:14px}
+    #forcedPass .fp-field label{display:block; margin-bottom:6px; font-size:13px; color:#aeb8cc}
+    #forcedPass .fp-wrap{position:relative}
+    #forcedPass .fp-wrap input{
+      width:100%; box-sizing:border-box; padding:13px 44px 13px 14px; border-radius:10px;
+      background:#071327; color:#fff; border:1px solid #2b4a63; outline:none; font-size:15px;
+      font-family:Arial,Helvetica,sans-serif;
+    }
+    #forcedPass .fp-wrap input:focus{border-color:#23a05a; box-shadow:0 0 0 3px rgba(35,160,90,.22)}
+    #forcedPass .fp-eye{
+      position:absolute; top:50%; right:8px; transform:translateY(-50%);
+      width:32px; height:32px; border:0; border-radius:7px; background:transparent;
+      color:#7e9bb8; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    }
+    #forcedPass .fp-eye:hover{color:#2ee6a0; background:rgba(255,255,255,.07)}
+    #forcedPass .fp-btn{
+      width:100%; margin-top:6px; padding:13px; border:0; border-radius:11px; cursor:pointer;
+      font:bold 15px Arial,Helvetica,sans-serif; color:#fff;
+      background:linear-gradient(180deg,#27b968,#1c8f52); box-shadow:0 6px 18px rgba(35,160,90,.35);
+    }
+    #forcedPass .fp-btn:hover{filter:brightness(1.08)}
+    #forcedPass .fp-btn[disabled]{opacity:.6; cursor:default}
+    #forcedPass .fp-msg{min-height:18px; margin:12px 0 0; font-size:13px; color:#ffb9c4}
+    #forcedPass .fp-out{
+      margin-top:8px; background:none; border:0; color:#8fa6c8; font:13px Arial,Helvetica,sans-serif;
+      cursor:pointer; text-decoration:underline;
+    }
+    #forcedPass .fp-out:hover{color:#fff}
+    @media (prefers-reduced-motion:reduce){#forcedPass .fp-card{animation:none}}
+  `;
+  document.head.appendChild(st);
+}
+
+function showForcedPasswordChange(){
+
+  if(document.getElementById("forcedPass")) return;
+  ensureForcedPassStyle();
+
+  const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  const SHIELD = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#2ee6a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3z"/><path d="M9 12l2 2 4-4"/></svg>';
+
+  const box = document.createElement("div");
+  box.id = "forcedPass";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  box.innerHTML =
+    '<div class="fp-card">' +
+      '<div class="fp-icon">' + SHIELD + '</div>' +
+      '<h2>Protege tu cuenta</h2>' +
+      '<p class="fp-text">Entraste con un código. Crea una contraseña nueva para tu cuenta (mínimo 6 caracteres).</p>' +
+      '<div class="fp-field"><label for="fpNew">Nueva contraseña</label>' +
+        '<div class="fp-wrap"><input id="fpNew" type="password" autocomplete="new-password" maxlength="72"><button type="button" class="fp-eye" aria-label="Mostrar contraseña">' + EYE + '</button></div></div>' +
+      '<div class="fp-field"><label for="fpNew2">Confirmar nueva contraseña</label>' +
+        '<div class="fp-wrap"><input id="fpNew2" type="password" autocomplete="new-password" maxlength="72"><button type="button" class="fp-eye" aria-label="Mostrar contraseña">' + EYE + '</button></div></div>' +
+      '<button type="button" class="fp-btn" id="fpSave">Actualizar contraseña</button>' +
+      '<p class="fp-msg" id="fpMsg"></p>' +
+      '<button type="button" class="fp-out" id="fpOut">Cerrar sesión</button>' +
+    '</div>';
+  document.body.appendChild(box);
+
+  box.querySelectorAll(".fp-eye").forEach(btn => {
+    const input = btn.parentNode.querySelector("input");
+    btn.addEventListener("click", () => {
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.innerHTML = show ? EYE_OFF : EYE;
+      btn.setAttribute("aria-label", show ? "Ocultar contraseña" : "Mostrar contraseña");
+      input.focus();
+    });
+  });
+
+  const msg = box.querySelector("#fpMsg");
+  const save = box.querySelector("#fpSave");
+  const n1 = box.querySelector("#fpNew"), n2 = box.querySelector("#fpNew2");
+  let busy = false;
+
+  async function guardar(){
+    msg.style.color = "";
+    if(!n1.value || !n2.value){ msg.textContent = "Escribe la nueva contraseña dos veces."; return; }
+    if(n1.value.length < 6){ msg.textContent = "La nueva contraseña debe tener mínimo 6 caracteres."; return; }
+    if(n1.value !== n2.value){ msg.textContent = "Las contraseñas no coinciden."; return; }
+    if(busy) return;
+
+    busy = true; save.disabled = true;
+    const r = await apiPost("api/recuperar.php", {paso:"cambiar", nueva:n1.value});
+    busy = false; save.disabled = false;
+
+    if(!r.ok){ msg.textContent = r.error || "No se pudo cambiar la contraseña."; return; }
+
+    box.remove();
+    showToast("Contraseña actualizada", "La próxima vez entra con tu contraseña nueva.", "ok");
   }
 
-  setTimeout(() => {
-    showLogin();
-    const loginUser = $("loginUser");
-    if(loginUser) loginUser.value = username;
-  }, 1200);
+  save.addEventListener("click", guardar);
+  [n1, n2].forEach(i => i.addEventListener("keydown", e => { if(e.key === "Enter") guardar(); }));
+  box.querySelector("#fpOut").addEventListener("click", () => { box.remove(); if(typeof logout === "function") logout(); });
+
+  n1.focus();
 }
+
+
+/* ---------- Estilo de las cajas de código (registro y recuperar) ---------- */
+
+function ensureCodeStyle(){
+  if(document.getElementById("codeInputStyle")) return;
+  const st = document.createElement("style");
+  st.id = "codeInputStyle";
+  st.textContent = `
+    .code-info{margin:4px 0 14px;font-size:13px;line-height:1.5;color:#b9cbe6;text-align:center}
+    .code-info b{color:#fff;word-break:break-all}
+    .auth-field input.code-input{
+      text-align:center;font-size:26px !important;font-weight:bold;letter-spacing:10px;
+      padding:12px 8px !important;border-color:#23a05a;
+      font-family:Arial,Helvetica,sans-serif;
+    }
+    .auth-field input.code-input:focus{box-shadow:0 0 0 3px rgba(35,160,90,.25)}
+    .auth-field input.code-input::placeholder{letter-spacing:10px;color:#4b5b78;font-weight:normal}
+    .code-links{text-align:center;color:#8995ad;font-size:13px;margin-top:14px}
+    .code-links button{background:none;color:#fff;font-weight:bold;cursor:pointer;margin:0 4px}
+  `;
+  document.head.appendChild(st);
+
+  // Los códigos solo aceptan números; Enter confirma
+  [["regCode", () => confirmRegister()], ["forgotCode", () => confirmForgotCode()]].forEach(([id, fn]) => {
+    const el = $(id);
+    if(!el) return;
+    el.addEventListener("input", () => { el.value = el.value.replace(/\D/g, "").slice(0, 6); });
+    el.addEventListener("keydown", e => { if(e.key === "Enter") fn(); });
+  });
+  const fe = $("forgotEmail");
+  if(fe) fe.addEventListener("keydown", e => { if(e.key === "Enter") sendForgotCode(); });
+}
+
+ensureCodeStyle();
 
 
 /* ---------- Animación de entrada de la aplicación ---------- */
@@ -769,6 +1015,14 @@ function enterApp(){
     console.error("No existe un usuario actual.");
     return;
   }
+
+  // Acudiente sin validar: solo ve la pantalla de espera, no puede usar nada más
+  if(currentUser.role === "acudiente" && !currentUser.validated){
+    showGuardianPending();
+    return;
+  }
+  hideGuardianPending();
+  document.body.classList.toggle("guardian-view", currentUser.role === "acudiente");
 
   const authScreen = $("authScreen");
   const landingScreen = $("landingScreen");
@@ -803,7 +1057,7 @@ function enterApp(){
   if(typeof applyProfilePhoto === "function") applyProfilePhoto();   // foto de perfil (si tiene)
 
   set("#profileRole", el => el.textContent =
-    {profesor:"Profesor", admin:"Administrador"}[currentUser.role] || "Estudiante");
+    {profesor:"Profesor", admin:"Administrador", acudiente:"Acudiente"}[currentUser.role] || "Estudiante");
 
   // Materia del profesor en "Mi perfil"
   const isTeacher = currentUser.role === "profesor";
@@ -833,6 +1087,124 @@ function enterApp(){
 }
 
 
+/* ---------- Acudiente: pantalla "Esperando validación" ----------
+   Una cuenta de acudiente no puede usar nada hasta que un estudiante escriba su correo en
+   "Correo del acudiente" (Mi perfil) y lo verifique con el código de 6 dígitos. */
+
+let guardianTimer = null;
+let guardianChecking = false;
+
+function ensureGuardianPendingStyle(){
+  if($("guardianPendingStyle")) return;
+  const st = document.createElement("style");
+  st.id = "guardianPendingStyle";
+  st.textContent = `
+    #guardianPending{position:fixed; inset:0; z-index:9500; display:none; place-items:center; padding:20px; overflow:auto;
+      background:radial-gradient(circle at 30% 20%, #0f3a6b 0%, #060f24 60%, #030814 100%); color:#eef4ff; font-family:Arial,Helvetica,sans-serif}
+    #guardianPending .gp-card{width:min(520px,100%); background:rgba(8,20,45,.92); border:1px solid #26304a; border-radius:18px;
+      padding:30px 26px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.45)}
+    #guardianPending .gp-icon{width:64px; height:64px; margin:0 auto 14px; border-radius:50%; display:grid; place-items:center;
+      font-size:30px; background:rgba(35,160,90,.18); border:2px solid #23a05a}
+    #guardianPending h2{margin:0 0 10px; font-size:24px}
+    #guardianPending .gp-lead{margin:0 0 16px; font-size:14px; line-height:1.55; color:#c9d3e6}
+    #guardianPending .gp-steps{text-align:left; margin:0 0 16px; padding:14px 18px 14px 36px; background:rgba(5,14,34,.65);
+      border:1px solid #26304a; border-radius:12px; font-size:13px; line-height:1.6; color:#dfe5f1}
+    #guardianPending .gp-steps li{margin:4px 0}
+    #guardianPending .gp-note{min-height:18px; margin:0 0 16px; font-size:12px; color:#8fe3b3}
+    #guardianPending .gp-actions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap}
+  `;
+  document.head.appendChild(st);
+}
+
+function setGuardianNote(text){
+  const n = $("gpNote");
+  if(n) n.textContent = text;
+}
+
+function showGuardianPending(){
+
+  ensureGuardianPendingStyle();
+
+  const authScreen = $("authScreen"), landing = $("landingScreen"), mainApp = $("mainApp");
+  if(authScreen) authScreen.classList.remove("show");
+  if(landing) landing.style.display = "none";
+  if(mainApp) mainApp.style.display = "none";
+
+  let box = $("guardianPending");
+  if(!box){
+    box = document.createElement("div");
+    box.id = "guardianPending";
+    document.body.appendChild(box);
+  }
+
+  const u = currentUser || {};
+  const grade = u.pendingGrade ? " del grado <b>" + escapeHtml(u.pendingGrade) + "</b>" : "";
+
+  box.innerHTML =
+    '<div class="gp-card">' +
+      '<div class="gp-icon">⏳</div>' +
+      '<h2>Esperando validación</h2>' +
+      '<p class="gp-lead">Hola, <b>' + escapeHtml(u.name || u.username || "") + '</b>. Tu cuenta de acudiente ya está creada, ' +
+        'pero todavía no está vinculada con tu hijo o hija' + grade + '.</p>' +
+      '<ol class="gp-steps">' +
+        '<li>Pídele que entre a A.D.E. y abra <b>Mi perfil</b>.</li>' +
+        '<li>En <b>Correo del acudiente</b> debe escribir <b>' + escapeHtml(u.email || "") + '</b> y pulsar <b>Verificar</b>.</li>' +
+        '<li>Te llegará un código de 6 dígitos a ese correo. Dáselo para que lo escriba.</li>' +
+      '</ol>' +
+      '<p class="gp-note" id="gpNote">Mientras no esté validada no puedes usar la agenda. Esta pantalla se actualiza sola.</p>' +
+      '<div class="gp-actions">' +
+        '<button type="button" class="btn" id="gpCheck">Ya lo hizo, revisar</button>' +
+        '<button type="button" class="btn secondary" id="gpOut">Cerrar sesión</button>' +
+      '</div>' +
+    '</div>';
+
+  box.style.display = "grid";
+  $("gpCheck").addEventListener("click", () => refreshGuardianState(true));
+  $("gpOut").addEventListener("click", logout);
+
+  clearInterval(guardianTimer);
+  guardianTimer = setInterval(() => refreshGuardianState(false), 15000);
+}
+
+function hideGuardianPending(){
+  clearInterval(guardianTimer);
+  guardianTimer = null;
+  const box = $("guardianPending");
+  if(box) box.remove();
+}
+
+// Le pregunta al servidor si ya quedó validada; si sí, entra a la agenda
+async function refreshGuardianState(manual){
+
+  if(guardianChecking || !currentUser || currentUser.role !== "acudiente") return;
+  guardianChecking = true;
+  if(manual) setGuardianNote("Revisando…");
+
+  let d = null;
+  try{
+    const r = await fetch("api/sesion.php", {credentials:"same-origin"});
+    d = await r.json();
+  }catch(e){}
+  guardianChecking = false;
+
+  if(!d){ if(manual) setGuardianNote("No hay conexión con el servidor. Intenta de nuevo."); return; }
+  if(!d.ok){ logout(); return; }
+
+  currentUser = guardarUsuarioLocal(d.usuario);
+  localStorage.setItem("ade_current_user", JSON.stringify(currentUser));
+
+  if(currentUser.validated){
+    hideGuardianPending();
+    await cargarUsuariosServidor();
+    enterApp();
+    showToast("¡Cuenta validada!", "Ya puedes ver la agenda del grupo de tu hijo o hija.", "ok", 5000);
+    return;
+  }
+
+  if(manual) setGuardianNote("Todavía no está validada. Pídele a tu hijo o hija que verifique tu correo en Mi perfil.");
+}
+
+
 /* ---------- Cerrar sesión ---------- */
 
 function logout(){
@@ -840,6 +1212,8 @@ function logout(){
   fetch("api/salir.php", {method:"POST", credentials:"same-origin"}).catch(() => {});
   localStorage.removeItem("ade_current_user");
   currentUser = null;
+  hideGuardianPending();
+  document.body.classList.remove("guardian-view");
   users = [];                       // no se deja en este computador la lista de otras cuentas
   saveUsers();
   if(typeof activities !== "undefined") activities = [];   // ni las actividades de esta cuenta
@@ -883,6 +1257,12 @@ function logout(){
       currentUser = guardarUsuarioLocal(d.usuario);
       localStorage.setItem("ade_current_user", JSON.stringify(currentUser));
       await cargarUsuariosServidor();
+      // Acudiente que estaba esperando y ya fue validado: entra a la agenda
+      if(currentUser.role === "acudiente" && currentUser.validated && $("guardianPending")){
+        hideGuardianPending();
+        enterApp();
+        return;
+      }
       // Se refresca lo que ya se ve en pantalla (foto, tabla de usuarios…) con los datos del servidor
       if(typeof applyProfilePhoto === "function") applyProfilePhoto();
       if(typeof renderAdminUsers === "function") renderAdminUsers();

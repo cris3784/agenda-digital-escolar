@@ -596,7 +596,7 @@ function homeStats(){
 function userRoleLabel(u){
   if(!u) return "";
   if(u.role === "admin") return String(u.name || "").trim().toLowerCase() === "administrador" ? "Acceso total" : "Administrador";
-  const role = u.role === "profesor" ? "Profesor" : "Estudiante";
+  const role = u.role === "profesor" ? "Profesor" : (u.role === "acudiente" ? "Acudiente" : "Estudiante");
   let g = "";
   if(u.role === "profesor"){
     const gs = typeof teacherGroups === "function" ? teacherGroups(u) : null;
@@ -641,6 +641,9 @@ function renderHomeStats(){
     cards[3] = {c:"#f59e0b", icon:HOME_ICONS.users, label:"Usuarios", id:"usersCount", n:nEst + nProf, page:"admin",
       sub: plural(nEst, "estudiante", "estudiantes") + " · " + plural(nProf, "profesor", "profesores")};
   }
+
+  // El acudiente no ve entregas: se quitan las tarjetas de pendientes y entregadas
+  if(typeof isGuardian === "function" && isGuardian()) cards.splice(0, 2);
 
   box.innerHTML = cards.map(k =>
     '<button type="button" class="home-stat" style="--c:' + k.c + '" onclick="goHome(\'' + k.page + '\')">' +

@@ -41,13 +41,20 @@ const ROLE_PERMISSIONS = {
     create: ["entrega"],          // solo el estudiante entrega trabajos
     edit:   ["perfil"],
     delete: []
+  },
+  acudiente: {                    // solo mira: no crea, no edita (salvo su perfil) y no borra
+    view:   ["inicio","actividades","materias","horario","calendario","perfil"],
+    create: [],
+    edit:   ["perfil"],
+    delete: []
   }
 };
  
 const ROLE_ALIASES = {
   teacher:"profesor", docente:"profesor",
   student:"estudiante", alumno:"estudiante",
-  administrator:"admin"
+  administrator:"admin",
+  acudiente:"estudiante"          // ve la agenda del grupo de su hijo, igual que un estudiante (pero sin poder hacer nada)
 };
  
 function getRole(){
@@ -56,8 +63,13 @@ function getRole(){
   return ROLE_ALIASES[role] || role;
 }
  
+function isGuardian(){
+  return !!(currentUser && String(currentUser.role || "").toLowerCase().trim() === "acudiente");
+}
+
 function hasPermission(action, resource){
-  const permissions = ROLE_PERMISSIONS[getRole()] || ROLE_PERMISSIONS.estudiante;
+  const own = currentUser ? ROLE_PERMISSIONS[String(currentUser.role || "").toLowerCase().trim()] : null;
+  const permissions = own || ROLE_PERMISSIONS[getRole()] || ROLE_PERMISSIONS.estudiante;
   return permissions[action]?.includes(resource) || false;
 }
  

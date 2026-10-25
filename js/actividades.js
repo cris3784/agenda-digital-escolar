@@ -169,6 +169,7 @@ function visibleActivities(){
 
 function activityStatus(a){
   const subs = a && a.submissions ? a.submissions : null;
+  if(typeof isGuardian === "function" && isGuardian()) return "pending";     // el acudiente no ve entregas
   if(getRole() === "estudiante"){
     return subs && currentUser && subs[currentUser.username] ? "done" : "pending";
   }
@@ -220,6 +221,15 @@ function activityDue(a){
 
 // Insignia de la tarjeta: Nota (estudiante calificado) · Entregada · Vencida · Vence hoy / mañana / en 2 días · Pendiente
 function activityBadge(a){
+  if(typeof isGuardian === "function" && isGuardian()){
+    // El acudiente no sabe si su hijo ya entregó: solo se le dice cómo va el plazo
+    const dl = activityDaysLeft(a);
+    if(dl === null) return {key:"pending", label:"Sin fecha"};
+    if(dl < 0)      return {key:"pending", label:"Plazo vencido"};
+    if(dl === 0)    return {key:"today",   label:"Vence hoy"};
+    if(dl === 1)    return {key:"soon",    label:"Vence mañana"};
+    return {key:"pending", label:"Próxima"};
+  }
   if(activityStatus(a) === "done"){
     const mine = getRole() === "estudiante" && a.submissions && currentUser ? a.submissions[currentUser.username] : null;
     if(mine && mine.grade != null) return {key:"graded", label:"Nota " + Number(mine.grade).toFixed(1)};
@@ -257,8 +267,19 @@ function activityProgress(a){
   };
 }
 
+// Un archivo (el de la actividad o el de una entrega): su nombre y los botones "Ver" (si el navegador lo puede abrir) y "Descargar"
 function actFileLink(f){
-  return '<a class="file-link" href="' + f.data + '" download="' + escapeHtml(f.name) + '" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</a>';
+  const url = String(f.data || "");
+  const name = String(f.name || "archivo");
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  const abrible = ["pdf","png","jpg","jpeg","gif","webp","txt"].indexOf(ext) >= 0;
+  const u = escapeHtml(url);
+  return '<span class="file-row">' +
+    '<span class="file-name">' + ACT_ICONS.file + '<span>' + escapeHtml(name) + '</span></span>' +
+    '<span class="file-actions">' +
+      (abrible ? '<a class="act-btn ghost sm" href="' + u + (url.indexOf("?") >= 0 ? "&amp;" : "?") + 'ver=1" target="_blank" rel="noopener">' + ACT_ICONS.eye + 'Ver</a>' : '') +
+      '<a class="act-btn sm" href="' + u + '" download="' + escapeHtml(name) + '">' + ACT_ICONS.download + 'Descargar</a>' +
+    '</span></span>';
 }
 
 
@@ -364,14 +385,14 @@ function ensureActivityStyle(){
     /* Avance de entregas ("5 de 28") */
     .act-prog{margin:3px 0 0;max-width:300px}
     .act-prog .act-note{margin:0 0 4px}
-    .act-prog-bar,.ad-prog-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
-    .act-prog-bar i,.ad-prog-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2fb86d,#6fe3a1)}
-    .ad-prog{display:flex;align-items:center;gap:12px;margin:2px 0 4px}
-    .ad-prog b{font-size:20px;color:#6fe3a1;white-space:nowrap}
-    .ad-prog span{font-size:12px;color:#9fb0cf;white-space:nowrap}
-    .ad-prog .ad-prog-bar{flex:1;height:8px}
-    .ad-missing{display:flex;flex-wrap:wrap;gap:6px;max-height:140px;overflow:auto}
-    .ad-missing span{padding:4px 10px;border-radius:999px;font-size:11.5px;color:#ffc9d4;background:rgba(214,64,110,.16);border:1px solid rgba(214,64,110,.4)}
+    .act-prog-bar,.dt-prog-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+    .act-prog-bar i,.dt-prog-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2fb86d,#6fe3a1)}
+    .dt-prog{display:flex;align-items:center;gap:12px;margin:2px 0 4px}
+    .dt-prog b{font-size:20px;color:#6fe3a1;white-space:nowrap}
+    .dt-prog span{font-size:12px;color:#9fb0cf;white-space:nowrap}
+    .dt-prog .dt-prog-bar{flex:1;height:8px}
+    .dt-missing{display:flex;flex-wrap:wrap;gap:6px;max-height:140px;overflow:auto}
+    .dt-missing span{padding:4px 10px;border-radius:999px;font-size:11.5px;color:#ffc9d4;background:rgba(214,64,110,.16);border:1px solid rgba(214,64,110,.4)}
 
     .act-btn{
       display:inline-flex;align-items:center;justify-content:center;gap:7px;
@@ -398,12 +419,18 @@ function ensureActivityStyle(){
 
     /* Ventana de detalle */
     .act-detail{display:flex;flex-direction:column;gap:12px;font-size:13px;color:#c3cfe8}
-    .act-detail .ad-top{display:flex;align-items:center;gap:14px}
-    .act-detail .ad-top h3{margin:0 0 3px;font-size:17px;color:#f2f6ff;overflow-wrap:anywhere}
-    .act-detail .ad-top p{margin:0;font-size:12px;color:#9fb0cf}
+    .act-detail .dt-top{display:flex;align-items:center;gap:14px}
+    .act-detail .dt-top h3{margin:0 0 3px;font-size:17px;color:#f2f6ff;overflow-wrap:anywhere}
+    .act-detail .dt-top p{margin:0;font-size:12px;color:#9fb0cf}
     .act-detail h5{margin:6px 0 0;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#7e8aa5}
-    .act-detail p.ad-text{margin:0;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+    .act-detail p.dt-text{margin:0;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
     .act-detail a.file-link{color:#8db8ff;font-weight:700;overflow-wrap:anywhere}
+    .file-row{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+    .file-row .file-name{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:#e6edfa;overflow-wrap:anywhere;min-width:0}
+    .file-row .file-name svg{flex:none;width:16px;height:16px;stroke:#8db8ff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .file-actions{display:flex;flex-wrap:wrap;gap:8px}
+    a.act-btn{text-decoration:none}
+    .act-btn.sm{padding:6px 13px}
     .act-subs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
     .act-subs li{padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
     .act-subs small{display:block;color:#7e8aa5;margin-top:2px}
@@ -435,8 +462,8 @@ function ensureActivityStyle(){
     }
     .sub-grade .gr-in{width:62px}
     .sub-grade .gr-fb{flex:1;min-width:120px}
-    .ad-grade{margin:6px 0 0;padding:10px 12px;border-radius:10px;background:rgba(47,184,109,.12);border:1px solid rgba(111,227,161,.4)}
-    .ad-grade b{color:#6fe3a1;font-size:18px}
+    .dt-grade{margin:6px 0 0;padding:10px 12px;border-radius:10px;background:rgba(47,184,109,.12);border:1px solid rgba(111,227,161,.4)}
+    .dt-grade b{color:#6fe3a1;font-size:18px}
   `;
   document.head.appendChild(st);
 }
@@ -455,6 +482,9 @@ const ACT_ICONS = {
   upload:'<svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>',
   users:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c.6-3.6 3.2-5.6 6.5-5.6s5.9 2 6.5 5.6"/><circle cx="17.2" cy="9" r="2.6"/><path d="M17 14.2c2.6.2 4.2 1.9 4.6 4.6"/></svg>',
   edit:'<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  eye:'<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  download:'<svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>',
+  file:'<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
   trash:'<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>'
 };
 
@@ -658,7 +688,7 @@ function goToLateActivities(){
 // Estudiante: al entrar, un aviso si tiene actividades que vencen hoy, mañana o en 2 días
 function announceDueSoon(){
 
-  if(getRole() !== "estudiante" || typeof showToast !== "function" || !currentUser) return;
+  if(getRole() !== "estudiante" || isGuardian() || typeof showToast !== "function" || !currentUser) return;
 
   const key = "ade_duesoon_" + currentUser.username + "_" + new Date().toDateString();
   try{
@@ -728,24 +758,26 @@ function viewActivity(i){
   const manage = canManageActivity(a);
 
   let html = '<div class="act-detail">' +
-    '<div class="ad-top">' + subjectIcon(a.subject) +
+    '<div class="dt-top">' + subjectIcon(a.subject) +
       '<div style="min-width:0;flex:1"><h3>' + escapeHtml(a.title) + '</h3>' +
       '<p>' + escapeHtml(a.subject) + ' · Entrega: ' + formatDue(a) + (a.group ? ' · Grupo ' + escapeHtml(a.group) : '') + '</p></div>' +
       '<span class="act-badge ' + badge.key + '">' + badge.label + '</span>' +
     '</div>' +
-    '<h5>Descripción</h5><p class="ad-text">' + escapeHtml(a.desc || "Sin descripción.") + '</p>';
+    '<h5>Descripción</h5><p class="dt-text">' + escapeHtml(a.desc || "Sin descripción.") + '</p>';
 
-  if(a.attachment) html += '<h5>Archivo de la actividad</h5><p class="ad-text">📎 ' + actFileLink(a.attachment) + '</p>';
+  if(a.attachment) html += '<h5>Archivo de la actividad</h5><p class="dt-text">' + actFileLink(a.attachment) + '</p>';
 
-  if(student){
+  if(student && isGuardian()){
+    // el acudiente solo mira: no ve entregas ni notas
+  }else if(student){
     html += '<h5>Tu entrega</h5>' + (mine
-      ? '<p class="ad-text">📤 ' + actFileLink(mine) + '<br><small style="color:#7e8aa5">Enviado: ' + escapeHtml(mine.submittedAt || "") +
+      ? '<p class="dt-text">' + actFileLink(mine) + '<br><small style="color:#7e8aa5">Enviado: ' + escapeHtml(mine.submittedAt || "") +
         (mine.late ? ' · <b style="color:#fcd34d">Entregado tarde</b>' : '') + '</small></p>' +
         (mine.grade != null || mine.feedback
-          ? '<div class="ad-grade">' + (mine.grade != null ? 'Nota: <b>' + Number(mine.grade).toFixed(1) + '</b>' : 'Sin nota todavía') +
-            (mine.feedback ? '<p class="ad-text" style="margin-top:6px">' + escapeHtml(mine.feedback) + '</p>' : '') + '</div>'
+          ? '<div class="dt-grade">' + (mine.grade != null ? 'Nota: <b>' + Number(mine.grade).toFixed(1) + '</b>' : 'Sin nota todavía') +
+            (mine.feedback ? '<p class="dt-text" style="margin-top:6px">' + escapeHtml(mine.feedback) + '</p>' : '') + '</div>'
           : '')
-      : '<p class="ad-text">Aún no has entregado este trabajo.</p>');
+      : '<p class="dt-text">Aún no has entregado este trabajo.</p>');
   }else{
     // Todos los estudiantes del grupo con su estado (entregó / tarde / falta), el archivo y la nota
     const students = activityStudents(a);
@@ -763,8 +795,8 @@ function viewActivity(i){
     if(rows.length){
       const pct = Math.round(doneN / rows.length * 100);
       html += '<h5>Entregas' + (a.group ? ' · Grupo ' + escapeHtml(a.group) : '') + '</h5>' +
-        '<div class="ad-prog"><b>' + doneN + ' de ' + rows.length + '</b>' +
-        '<div class="ad-prog-bar"><i style="width:' + pct + '%"></i></div>' +
+        '<div class="dt-prog"><b>' + doneN + ' de ' + rows.length + '</b>' +
+        '<div class="dt-prog-bar"><i style="width:' + pct + '%"></i></div>' +
         '<span>' + pct + '%' + (lateN ? ' · ' + lateN + ' tarde' : '') + '</span></div>' +
         '<div class="sub-filter">' +
           '<button type="button" class="on" onclick="filterSubs(this,\'all\')">Todos (' + rows.length + ')</button>' +
@@ -791,9 +823,9 @@ function viewActivity(i){
             '<td><b>' + escapeHtml(r.name) + '</b></td><td><span class="sub-st ' + st + '">' + label + '</span></td>' +
             '<td>' + file + '</td><td>' + grade + '</td></tr>';
         }).join("") + '</tbody></table></div>' +
-        (rows.length > MAX ? '<p class="ad-text" style="margin-top:6px;color:#7e8aa5">Se muestran los primeros ' + MAX + ' de ' + rows.length + '.</p>' : '');
+        (rows.length > MAX ? '<p class="dt-text" style="margin-top:6px;color:#7e8aa5">Se muestran los primeros ' + MAX + ' de ' + rows.length + '.</p>' : '');
     }else{
-      html += '<h5>Entregas</h5><p class="ad-text">Todavía no hay estudiantes registrados en este grupo.</p>';
+      html += '<h5>Entregas</h5><p class="dt-text">Todavía no hay estudiantes registrados en este grupo.</p>';
     }
   }
 
@@ -920,10 +952,11 @@ function submitWork(i){
  
 /* ---------- Ventana "Nueva actividad" ---------- */
  
-function openModal(){
-  if(!requirePermission("create","actividad")) return;
-  $("modal").classList.add("show");
- 
+let editingActivityId = null;      // código de la actividad que se está editando (null = nueva)
+
+// Llena las listas de la ventana (materias, grupos) y crea los campos que faltan
+function prepareActivityModal(){
+
   // Profesor: solo sus materias y sus grupos. Administrador: todas.
   const role = getRole();
   const mySubjects = role === "profesor"
@@ -953,6 +986,75 @@ function openModal(){
     : (window.ADE_CURRICULUM ? ADE_CURRICULUM.groups : []);
   groupSel.innerHTML = (role === "admin" ? '<option value="">Todos los grupos</option>' : "") +
     groups.map(g => `<option value="${g}">${g}</option>`).join("");
+
+  // Aviso del archivo actual (solo se ve al editar)
+  if(!$("editAttachInfo") && $("newAttachment")){
+    const box = document.createElement("div");
+    box.id = "editAttachInfo";
+    box.style.cssText = "display:none;margin:0 0 10px;font-size:13px;line-height:1.6";
+    $("newAttachment").insertAdjacentElement("beforebegin", box);
+  }
+}
+
+// Cambia el título y el botón de la ventana: "Nueva actividad" o "Editar actividad"
+function setActivityModalMode(editing){
+  const h = document.querySelector("#modal .modal-head h2");
+  if(h) h.textContent = editing ? "Editar actividad" : "Nueva actividad";
+  const b = document.querySelector("#modal .actions .btn:not(.secondary)");
+  if(b){
+    b.textContent = editing ? "Guardar cambios" : "Guardar actividad";
+    b.setAttribute("onclick", editing ? "saveActivityEdit()" : "addActivity()");
+  }
+  const info = $("editAttachInfo");
+  if(info){ info.style.display = editing ? "" : "none"; if(!editing) info.innerHTML = ""; }
+}
+
+function addOptionIfMissing(select, value, label){
+  if(!select) return;
+  if(![...select.options].some(o => o.value === value)) select.add(new Option(label || value, value));
+}
+
+function openModal(){
+  if(!requirePermission("create","actividad")) return;
+  editingActivityId = null;
+  prepareActivityModal();
+  ["newTitle","newDesc","newDate"].forEach(id => $(id).value = "");
+  if($("newTime")) $("newTime").value = "23:59";
+  if($("newAttachment")) $("newAttachment").value = "";
+  setActivityModalMode(false);
+  $("modal").classList.add("show");
+}
+
+// La misma ventana, con los datos de la actividad, para cambiarlos
+function openEditModal(i){
+  const a = activities[i];
+  if(!a) return;
+  ensureActivityStyle();
+  editingActivityId = a.id;
+  prepareActivityModal();
+
+  addOptionIfMissing($("newSubject"), a.subject);
+  addOptionIfMissing($("newGroup"), a.group || "", a.group ? a.group : "Todos los grupos");
+
+  $("newTitle").value = a.title || "";
+  $("newSubject").value = a.subject || "";
+  $("newGroup").value = a.group || "";
+  $("newDate").value = a.date || "";
+  if($("newTime")) $("newTime").value = a.time || "23:59";
+  $("newDesc").value = a.desc || "";
+  if($("newAttachment")) $("newAttachment").value = "";
+
+  const info = $("editAttachInfo");
+  if(info){
+    info.innerHTML = a.attachment
+      ? 'Archivo actual: ' + actFileLink(a.attachment) +
+        '<label style="display:block;margin-top:6px;cursor:pointer"><input type="checkbox" id="editRemoveAttach"> Quitar este archivo</label>' +
+        '<small style="color:#7e8aa5;display:block">Si eliges otro archivo abajo, reemplaza al actual.</small>'
+      : '<small style="color:#7e8aa5">Esta actividad no tiene archivo adjunto. Puedes subir uno abajo.</small>';
+  }
+
+  setActivityModalMode(true);
+  $("modal").classList.add("show");
 }
  
 function closeModal(){
@@ -1019,29 +1121,58 @@ async function addActivity(){
   render();
 }
  
-async function editActivity(i){
+function editActivity(i){
  
   if(!requirePermission("edit","actividad")) return;
  
   const a = activities[i];
-  if(!canManageActivity(a)) return denyPermission();
- 
-  const title = prompt("Nuevo título:", a.title);
-  if(title === null) return;
- 
-  const desc = prompt("Nueva descripción:", a.desc || "");
-  if(desc === null) return;
+  if(!a || !canManageActivity(a)) return denyPermission();
+
+  openEditModal(i);
+}
+
+async function saveActivityEdit(){
+
+  if(!requirePermission("edit","actividad")) return;
+
+  const a = activities.find(x => x.id === editingActivityId);
+  if(!a || !canManageActivity(a)) return denyPermission();
+
+  const title = $("newTitle").value.trim();
+  const fileInput = $("newAttachment");
+  const file = fileInput ? fileInput.files[0] : null;
+  const group = $("newGroup") ? $("newGroup").value : "";
+
+  if(!title) return alert("Escribe un título para la actividad.");
+  if(getRole() === "profesor" && !teacherCanUse($("newSubject").value, group)){
+    return alert("Solo puedes usar tu materia y tus grupos.");
+  }
+  if(file && file.size > 5 * 1024 * 1024) return alert("El archivo no puede superar los 5 MB.");
+  if(actividadBusy) return;
+
+  const date = $("newDate").value;
+  const time = date ? (($("newTime") && $("newTime").value) || "23:59") : "";
 
   const datos = new FormData();
   datos.append("accion", "editar");
   datos.append("codigo", a.id);
-  datos.append("titulo", title.trim() || a.title);
-  datos.append("desc", desc);
+  datos.append("titulo", title);
+  datos.append("materia", $("newSubject").value);
+  datos.append("grupo", group);
+  datos.append("fecha", date);
+  datos.append("hora", time);
+  datos.append("desc", $("newDesc").value);
+  if(file) datos.append("archivo", file, file.name);
+  else if($("editRemoveAttach") && $("editRemoveAttach").checked) datos.append("quitar_archivo", "1");
 
+  actividadBusy = true;
   const r = await apiForm("api/actividad_guardar.php", datos);
+  actividadBusy = false;
+
   if(!r.ok) return alert(r.error || "No se pudo guardar la actividad.");
 
   reemplazarActividad(r.actividad);
+  closeModal();
   render();
 }
  

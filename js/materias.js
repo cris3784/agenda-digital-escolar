@@ -461,7 +461,7 @@ function tomorrowCard(item){
   const mine = visibleActivities().filter(a => normText(a.subject) === key);
   let badge = "", body = "";
 
-  if(student){
+  if(student && !isGuardian()){
     const today = new Date(); today.setHours(0,0,0,0);
     const pend = mine.filter(a => activityStatus(a) === "pending")
       .sort((a, b) => String(a.date || "9999").localeCompare(String(b.date || "9999")));
@@ -488,7 +488,7 @@ function tomorrowCard(item){
   }else{
     const nSubs = mine.reduce((n, a) => n + (a.submissions ? Object.keys(a.submissions).length : 0), 0);
     badge = '<span class="tm-badge ok">' + mine.length + (mine.length === 1 ? " actividad" : " actividades") + '</span>';
-    body = '<p class="tm-free" style="color:#9fb0cf">' + nSubs + (nSubs === 1 ? " entrega recibida" : " entregas recibidas") + '</p>' +
+    body = (isGuardian() ? '' : '<p class="tm-free" style="color:#9fb0cf">' + nSubs + (nSubs === 1 ? " entrega recibida" : " entregas recibidas") + '</p>') +
       '<button type="button" class="tm-btn soft" data-s="' + escapeHtml(name) + '" onclick="goToSubjectActivities(this.dataset.s)">Ver actividades</button>';
   }
 
