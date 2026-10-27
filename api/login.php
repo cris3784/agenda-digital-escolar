@@ -59,6 +59,7 @@ ejecutar($conexion, 'DELETE FROM intentos_login WHERE int_ip = ? AND int_clave =
 
 session_regenerate_id(true);
 $_SESSION = ['rol' => $encontrado['rol'], 'codigo' => (int)$encontrado['codigo']];
+registrar_acceso($conexion, $encontrado['rol'], (int)$encontrado['codigo']);
 
 responder([
     'ok'      => true,

@@ -41,12 +41,32 @@ if ($yo) {
 $est = null;
 $pro = null;
 
+// Grupos que atiende el profesor (null en la lista = sin límite de grupo)
+$sinLimite = ($c['rol'] === 'admin');
+$mios = [];
+if ($c['rol'] === 'profesor') {
+    foreach ($c['asig'] as $a) {
+        if ($a['gru'] === null) {
+            $sinLimite = true;
+        } elseif (!in_array($a['gru'], $mios, true)) {
+            $mios[] = $a['gru'];
+        }
+    }
+}
+
 if ($para !== '') {
     // Dirigida a una sola cuenta
-    $f = filas($conexion, 'SELECT est_codigo AS c FROM estudiantes WHERE est_usuario = ? LIMIT 1', 's', [$para]);
+    $f = filas($conexion, 'SELECT est_codigo AS c, est_gru_grupo AS g FROM estudiantes WHERE est_usuario = ? LIMIT 1', 's', [$para]);
     if ($f) {
+        // un profesor solo le avisa a estudiantes de sus grupos
+        if (!$sinLimite && !in_array($f[0]['g'], $mios, true)) {
+            fallar('Solo puedes avisar a estudiantes de tus grupos.', 403);
+        }
         $est = (int)$f[0]['c'];
     } else {
+        if ($c['rol'] !== 'admin') {
+            fallar('Solo puedes avisar a estudiantes de tus grupos.', 403);
+        }
         $f = filas($conexion, 'SELECT pro_codigo AS c FROM profesores WHERE pro_usuario = ? LIMIT 1', 's', [$para]);
         if (!$f) {
             fallar('Esa cuenta no existe.', 404);
@@ -61,15 +81,6 @@ if ($para !== '') {
         }
     }
     if ($c['rol'] === 'profesor') {
-        $sinLimite = false;
-        $mios = [];
-        foreach ($c['asig'] as $a) {
-            if ($a['gru'] === null) {
-                $sinLimite = true;
-            } elseif (!in_array($a['gru'], $mios, true)) {
-                $mios[] = $a['gru'];
-            }
-        }
         if ($grupos) {
             if (!$sinLimite) {
                 foreach ($grupos as $g) {

@@ -8,9 +8,9 @@ if ($esLocal) {
     $base    = 'ade';
 } else {
     $host    = 'sql302.infinityfree.com';
-    $usuario = 'if0_43229914';
-    $clave   = 'R6mg0AqRMMfmHM';
-    $base    = 'if0_43229914_ade';
+    $usuario = 'if0_43280978';
+    $clave   = 'XXElozFd57onMVz';
+    $base    = 'if0_43280978_ade';
 }
 
 mysqli_report(MYSQLI_REPORT_OFF);

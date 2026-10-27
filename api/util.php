@@ -140,7 +140,7 @@ function cargar_lista($conexion, $rol, $donde = '', $tipos = '', $params = [], $
 
     $f = filas(
         $conexion,
-        "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre, {$p}_apellidos AS apellidos, {$p}_nacimiento AS nacimiento, {$p}_usuario AS usuario, {$p}_correo AS correo, {$p}_creado AS creado, {$p}_foto AS foto, {$p}_correo_verificado AS verificado{$extra} FROM {$tabla} {$donde} ORDER BY {$p}_codigo",
+        "SELECT {$p}_codigo AS codigo, {$p}_nombre AS nombre, {$p}_apellidos AS apellidos, {$p}_nacimiento AS nacimiento, {$p}_usuario AS usuario, {$p}_correo AS correo, {$p}_creado AS creado, {$p}_foto AS foto, {$p}_correo_verificado AS verificado, {$p}_ultimo_acceso AS acceso{$extra} FROM {$tabla} {$donde} ORDER BY {$p}_codigo",
         $tipos,
         $params
     );
@@ -191,6 +191,11 @@ function cargar_lista($conexion, $rol, $donde = '', $tipos = '', $params = [], $
 
         if (!$publico) {
             $u['emailVerified'] = !empty($x['verificado']);
+        }
+
+        // Última vez que inició sesión (el profesor la ve en los estudiantes de sus grupos)
+        if (!$publico || $rol === 'estudiante') {
+            $u['lastLogin'] = formato_acceso($x['acceso']);
         }
 
         if ($rol === 'estudiante') {
@@ -250,6 +255,28 @@ function cargar_usuario($conexion, $rol, $codigo, $publico = false) {
     $p = ROLES[$rol][1];
     $l = cargar_lista($conexion, $rol, "WHERE {$p}_codigo = ?", 'i', [(int)$codigo], $publico);
     return $l ? $l[0] : null;
+}
+
+// ---- Último inicio de sesión (hora de Colombia) ----
+function formato_acceso($valor) {
+    if (!$valor) {
+        return '';
+    }
+    try {
+        $d = new DateTime($valor, new DateTimeZone('America/Bogota'));
+        return $d->format('d/m/Y, g:i:s a');
+    } catch (Exception $e) {
+        return '';
+    }
+}
+
+function registrar_acceso($conexion, $rol, $codigo) {
+    if (!isset(ROLES[$rol])) {
+        return;
+    }
+    list($tabla, $p) = ROLES[$rol];
+    $ahora = (new DateTime('now', new DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s');
+    ejecutar($conexion, "UPDATE {$tabla} SET {$p}_ultimo_acceso = ? WHERE {$p}_codigo = ?", 'si', [$ahora, (int)$codigo]);
 }
 
 // Un profesor solo puede usar el sistema si el administrador ya lo aprobó

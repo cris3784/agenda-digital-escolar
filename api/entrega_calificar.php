@@ -25,8 +25,8 @@ if (!puede_gestionar($c, $a)) {
 
 $nota = null;
 if ($notaTexto !== null && $notaTexto !== '') {
-    if (!is_numeric($notaTexto) || $notaTexto < 0 || $notaTexto > 5) {
-        fallar('La nota debe estar entre 0 y 5.');
+    if (!is_numeric($notaTexto) || $notaTexto < 1 || $notaTexto > 5) {
+        fallar('La nota debe estar entre 1 y 5.');
     }
     $nota = number_format(round((float)$notaTexto, 1), 1, '.', '');
 }

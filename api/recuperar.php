@@ -81,6 +81,8 @@ if ($paso === 'verificar') {
         'recuperar' => ['hasta' => time() + 900]
     ];
     borrar_codigos($conexion, $correo, 'recuperar');
+    registrar_acceso($conexion, $datos['rol'], (int)$datos['codigo']);
+    $usuario = cargar_usuario($conexion, $datos['rol'], (int)$datos['codigo']);   // ya con la hora de este ingreso
 
     responder(['ok' => true, 'usuario' => $usuario]);
 }

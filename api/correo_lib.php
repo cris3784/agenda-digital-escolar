@@ -10,7 +10,7 @@ const CODIGO_VIDA     = 600;   // el código dura 10 minutos
 const CODIGO_INTENTOS = 5;     // intentos por código
 const CODIGO_ESPERA   = 60;    // segundos entre un código y el siguiente
 const CODIGO_POR_HORA = 5;     // códigos por hora para el mismo correo
-const SITIO_URL       = 'https://agendaescolardigital.infinityfreeapp.com';
+const SITIO_URL       = 'https://agendadigitalescolar.free.nf';
 
 
 /* ---------- Enviar un correo por Brevo ---------- */
