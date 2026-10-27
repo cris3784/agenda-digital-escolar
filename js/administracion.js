@@ -96,6 +96,7 @@ function renderAdminUsers(){
       <td data-label="Materia">${u.role === "profesor" ? escapeHtml(teacherSubjectsText(u) || "Sin materia") : "—"}</td>
       <td data-label="Grado">${u.role === "admin" ? "—" : escapeHtml((u.role === "profesor" && teacherGroups(u) ? teacherGroups(u).join(", ") : u.grade) || "")}</td>
       <td data-label="Creado">${escapeHtml(u.createdAt || "")}</td>
+      <td data-label="Último acceso">${escapeHtml(u.lastLogin || "Nunca")}</td>
       <td>
         <div class="ibtn-row">
           ${u.role === "acudiente" ? ibtn("lock", "Se edita desde su perfil", "") : ibtn("edit", "Editar usuario", `openUserEditor(${i})`)}
@@ -106,6 +107,62 @@ function renderAdminUsers(){
       </td>
     </tr>
   `).join("");
+}
+
+// Vuelve a pedir las cuentas al servidor (para ver la hora de acceso más reciente) y redibuja la tabla
+async function refreshAdminUsers(){
+  if(getRole() !== "admin") return;
+  if(await cargarUsuariosServidor()) renderAdminUsers();
+}
+
+
+/* ---------- Mis estudiantes (solo profesor) ----------
+   Los estudiantes de sus grupos, en orden alfabético: nombre, grado y último acceso. */
+
+function renderMyStudents(){
+
+  const body = $("myStudentsBody");
+  if(!body || getRole() !== "profesor") return;
+
+  const all = users.filter(u => u && u.role === "estudiante");
+
+  // Lista de grupos que dicta el profesor (si no tiene grupos fijos, los de sus estudiantes)
+  const mine = teacherGroups();
+  const groups = typeof adeSortGroups === "function"
+    ? adeSortGroups(mine ? mine.slice() : Array.from(new Set(all.map(u => String(u.grade || "")).filter(Boolean))))
+    : (mine || []);
+
+  const pick = $("myStudentsGroup");
+  let group = "";
+  if(pick){
+    const keep = pick.value;
+    pick.innerHTML = groups.map(g => `<option value="${escapeHtml(g)}">Grupo ${escapeHtml(g)}</option>`).join("");
+    group = groups.indexOf(keep) !== -1 ? keep : (groups[0] || "");      // un grupo a la vez: por defecto el primero
+    pick.value = group;
+    pick.style.display = groups.length ? "" : "none";
+  }
+
+  const list = all
+    .filter(u => !group || String(u.grade || "") === group)
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "es", {sensitivity:"base"}));
+
+  const count = $("myStudentsCount");
+  if(count) count.textContent = list.length + (list.length === 1 ? " estudiante" : " estudiantes");
+
+  body.innerHTML = list.length
+    ? list.map((u, i) => `
+      <tr>
+        <td data-label="#">${i + 1}</td>
+        <td data-label="Nombre">${escapeHtml(u.name || "")}</td>
+        <td data-label="Grado">${escapeHtml(u.grade || "")}</td>
+        <td data-label="Último acceso">${escapeHtml(u.lastLogin || "Nunca")}</td>
+      </tr>`).join("")
+    : '<tr><td colspan="4" style="text-align:center;color:#7e8aa5">Todavía no hay estudiantes en este grupo.</td></tr>';
+}
+
+async function refreshMyStudents(){
+  if(getRole() !== "profesor") return;
+  if(await cargarUsuariosServidor()) renderMyStudents();
 }
 
 async function deleteRegisteredUser(index){

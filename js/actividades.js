@@ -754,7 +754,7 @@ function viewActivity(i){
           let grade = '<span style="color:#7e8aa5">—</span>';
           if(r.sub && canGrade){
             grade = '<div class="sub-grade">' +
-              '<input class="gr-in" type="number" min="0" max="5" step="0.1" placeholder="0–5" value="' + (r.sub.grade != null ? r.sub.grade : '') + '">' +
+              '<input class="gr-in" type="number" min="1" max="5" step="0.1" placeholder="1–5" value="' + (r.sub.grade != null ? r.sub.grade : '') + '">' +
               '<input class="gr-fb" type="text" maxlength="300" placeholder="Comentario (opcional)" value="' + escapeHtml(r.sub.feedback || '') + '">' +
               ibtn("check", "Guardar nota", "saveGrade(this," + i + ")", "sm") + '</div>';
           }else if(r.sub && r.sub.grade != null){
@@ -795,7 +795,7 @@ function filterSubs(btn, mode){
   });
 }
 
-// Guarda la nota (0 a 5) y el comentario de una entrega, y le avisa al estudiante
+// Guarda la nota (1 a 5) y el comentario de una entrega, y le avisa al estudiante
 let gradeBusy = false;
 
 async function saveGrade(btn, i){
@@ -814,7 +814,7 @@ async function saveGrade(btn, i){
   let grade = null;
   if(raw !== ""){
     grade = Number(raw);
-    if(!isFinite(grade) || grade < 0 || grade > 5) return alert("La nota debe estar entre 0 y 5.");
+    if(!isFinite(grade) || grade < 1 || grade > 5) return alert("La nota debe estar entre 1 y 5.");
     grade = Math.round(grade * 10) / 10;
   }
 

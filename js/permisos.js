@@ -30,7 +30,7 @@ const ROLE_PERMISSIONS = {
     delete: ["actividad","usuario","materia","horario","calendario"]
   },
   profesor: {
-    view:   ["inicio","actividades","materias","horario","calendario","perfil"],
+    view:   ["inicio","actividades","materias","horario","calendario","estudiantes","perfil"],
     // Calendario: el profesor puede publicar eventos, pero solo edita/borra los suyos (ver canManageEvent)
     create: ["actividad","calendario","aviso"],
     edit:   ["actividad","perfil","calendario"],
@@ -92,6 +92,10 @@ function applyPermissions(){
     if((btn.textContent || "").includes("Administración")) show(btn, isAdmin);
   });
  
+  // Mis estudiantes: solo profesor
+  document.querySelectorAll('.nav button[onclick*="\'estudiantes\'"]')
+    .forEach(btn => show(btn, hasPermission("view","estudiantes")));
+
   const adminPage = $("admin");
   show(adminPage, isAdmin);
   if(adminPage && !isAdmin) adminPage.classList.remove("active");

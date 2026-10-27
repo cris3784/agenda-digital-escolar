@@ -61,6 +61,7 @@ const NAV_ICONS = {
   horario: ICON_OPEN + '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15.2" r="2.6"/><path d="M12 14v1.3l.9.6"/></svg>',
   calendario: ICON_OPEN + '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 13.6h.01M12 13.6h.01M16 13.6h.01M8 17h.01M12 17h.01M16 17h.01" stroke-width="2.4"/></svg>',
   perfil: ICON_SOLID + '<circle cx="12" cy="7.8" r="4.2"/><path d="M3.8 20.4c0-4.200 3.700-6.600 8.200-6.600s8.200 2.400 8.200 6.600c0 .6-.4 1-1 1H4.800c-.6 0-1-.4-1-1z"/></svg>',
+  estudiantes: ICON_OPEN + '<circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c.6-3.6 3.2-5.6 6.5-5.6s5.9 2 6.5 5.6"/><circle cx="17.2" cy="9" r="2.6"/><path d="M17 14.2c2.6.2 4.2 1.9 4.6 4.6"/></svg>',
   admin: ICON_SOLID + '<path d="M12 2.6 4.4 5.500v5.800c0 4.800 3.200 8.500 7.600 10.100 4.400-1.600 7.600-5.300 7.600-10.100V5.500L12 2.600z"/><path d="m8.700 12.200 2.400 2.400 4.300-4.600" fill="none" stroke="#0b1530" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   logout: ICON_OPEN + '<path d="M9.500 4H6.500A1.500 1.500 0 0 0 5 5.500v13A1.500 1.500 0 0 0 6.500 20h3"/><path d="m15 8 4 4-4 4M19 12H9.500"/></svg>'
 };
@@ -665,6 +666,7 @@ const PAGE_NAMES = {
   materias:"Materias",
   horario:"Horario",
   calendario:"Calendario",
+  estudiantes:"Mis estudiantes",
   perfil:"Mi perfil",
   admin:"Administración"
 };
@@ -682,6 +684,10 @@ function showPage(id, btn){
   setPageTitle(id);
  
   render();
+
+  // Hora de último acceso al día: se vuelve a pedir al servidor cada vez que se abre el apartado
+  if(id === "admin" && typeof refreshAdminUsers === "function") refreshAdminUsers();
+  if(id === "estudiantes" && typeof refreshMyStudents === "function") refreshMyStudents();
 }
  
  
@@ -759,6 +765,7 @@ const PAGE_HEADERS = {
   actividades: {icon:"actividades", title:"Actividades",       sub:"Consulta, entrega y organiza tus tareas."},
   materias:    {icon:"materias",    title:"Materias",          sub:"Todas las materias del colegio y sus actividades."},
   horario:     {icon:"horario",     title:"Horario de clases", sub:"Consulta tus clases de la semana."},
+  estudiantes: {icon:"estudiantes", title:"Mis estudiantes",   sub:"Los estudiantes de tus grupos, en orden alfabético."},
   perfil:      {icon:"perfil",      title:"Mi perfil",         sub:"Administra tu información personal y tu foto."},
   admin:       {icon:"admin",       title:"Administración",    sub:"Gestiona las cuentas de los usuarios de la plataforma."}
 };
@@ -1112,6 +1119,7 @@ function render(){
   if(page === "inicio" || page === "materias") safeStep(renderSubjects);
   if(page === "horario") safeStep(renderSchedule);
   if(page === "calendario") safeStep(renderCalendar);
+  if(page === "estudiantes" && typeof renderMyStudents === "function") safeStep(renderMyStudents);
  
   // Estudiante: según SU entrega. Profesor/admin: según si ya recibieron entregas.
   let mineList = [];
