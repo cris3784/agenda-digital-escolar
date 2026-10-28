@@ -1,27 +1,34 @@
 /* =========================================================
    INFORMACIÓN DE LA PÁGINA PÚBLICA
-   Botones de la izquierda: Manual ADE, Soporte en línea,
-   Nuestros programas, Biblioteca digital, Correo escolar y Guía ADE.
-   Cada uno abre una ventana con información sacada de la propia
-   aplicación (cargos, materias, archivos de las actividades, etc.).
-
+   Qué hace: Maneja los botones de la izquierda de la página de inicio (Manual ADE, Soporte en línea, Nuestros programas, Biblioteca digital, Correo escolar y Guía ADE). Cada uno abre una ventana con información sacada de la propia aplicación.
+   Por qué: Así quien aún no inicia sesión puede conocer la agenda y recibir ayuda, y la información siempre está al día porque sale de los datos reales (cargos, materias, archivos de actividades, etc.).
    Ajustes rápidos:
-   - CORREO_URL            → a dónde lleva "Abrir mi correo"
-   - CORREO_SOPORTE        → correo al que escribe "Escribir al administrador".
-                             Si lo dejas vacío usa el correo de la cuenta admin.
+   - CORREO_URL     → a dónde lleva "Abrir mi correo".
+   - CORREO_SOPORTE → correo al que escribe "Escribir al administrador"; si se deja vacío usa el correo de la cuenta admin.
    ========================================================= */
+
+/* ---------- Envoltura del archivo ----------
+   Qué hace: Encierra todo el código en una función que se ejecuta sola.
+   Por qué: Así sus variables no se mezclan con las de otros archivos. Solo se comparten abrirInfo y cerrarInfo al final. */
 (function(){
 
+  /* ---------- Direcciones de correo ----------
+     Qué hace: Guardan a dónde lleva "Abrir mi correo", el correo de soporte y un correo de respaldo.
+     Por qué: Son los datos que más se cambian; están juntos arriba para encontrarlos fácil. */
   const CORREO_URL = "https://mail.google.com";
   const CORREO_SOPORTE = "";
   const CORREO_RESPALDO = "admin@gmail.com";
 
+  /* ---------- Limpiar texto ----------
+     Qué hace: Cambia símbolos especiales por versiones seguras.
+     Por qué: Para que lo escrito no dañe la página. */
   const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 
-  /* ---------- Iconos (reemplazan a los emojis) ----------
-     Cada icono es un dibujo SVG que toma el color del texto. Para cambiar uno, edita ICONOS. */
+  /* ---------- Iconos ----------
+     Qué hace: Cada icono es un dibujo SVG que toma el color del texto. Para cambiar uno se edita ICONOS.
+     Por qué: Se ven más ordenados y limpios que los emojis, y se ven igual en todos los equipos. */
   const ICONOS = {
     manual:       '<path d="M12 6.8C10 5.2 7.3 4.6 3.8 4.8v13.4c3.5-.2 6.2.4 8.2 2 2-1.6 4.7-2.2 8.2-2V4.8c-3.5-.2-6.2.4-8.2 2z"/><path d="M12 6.8v13.4"/><path d="M6.5 9.4h2.6M6.5 12.4h2.6M14.9 9.4h2.6M14.9 12.4h2.6"/>',
     soporte:      '<path d="M2.5 9a14 14 0 0 1 19 0"/><path d="M5.8 12.5a9.5 9.5 0 0 1 12.4 0"/><path d="M9 15.8a5 5 0 0 1 6 0"/><path d="M12 19.3h.01" stroke-width="3.2"/>',
@@ -41,12 +48,18 @@
     ir:           '<path d="m9 6 6 6-6 6"/>'
   };
 
+  /* ---------- Dibujar un icono ----------
+     Qué hace: Devuelve el icono listo para poner en el HTML, en tamaño normal, mediano o grande.
+     Por qué: Atajo para no repetir el código del dibujo. */
   // Devuelve el icono listo para poner en el HTML. size: "" | "md" | "lg"
   function ico(nombre, size){
     return '<i class="ld-ico' + (size ? " " + size : "") + '" aria-hidden="true"><svg viewBox="0 0 24 24">' +
       (ICONOS[nombre] || ICONOS.manual) + '</svg></i>';
   }
 
+  /* ---------- Estilos de las ventanas ----------
+     Qué hace: Texto con los estilos (colores, tamaños y formas) de las ventanas de información.
+     Por qué: Se agregan desde aquí para no tocar el archivo de estilos. */
   const css = `
     .ade-info{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;
       padding:18px;background:rgba(4,9,20,.78);backdrop-filter:blur(3px)}
@@ -153,12 +166,17 @@
     }
   `;
 
-  /* ---------- Datos que vienen de la aplicación ---------- */
+  /* ---------- Datos que vienen de la aplicación ----------
+     Qué hace: Funciones que consultan la lista de materias, el correo de soporte y el tamaño de los archivos.
+     Por qué: Así el contenido de las ventanas siempre usa información real. */
 
   function listaMaterias(){
     return (typeof subjects !== "undefined" && Array.isArray(subjects)) ? subjects : [];
   }
 
+  /* ---------- Correo de soporte ----------
+     Qué hace: Devuelve el correo de soporte; si no hay uno, usa el del administrador o el de respaldo.
+     Por qué: Para que "Escribir al administrador" siempre tenga a dónde ir. */
   function correoSoporte(){
     if(CORREO_SOPORTE) return CORREO_SOPORTE;
     try{
@@ -168,12 +186,18 @@
     return CORREO_RESPALDO;
   }
 
+  /* ---------- Enlace para escribir ----------
+     Qué hace: Arma el enlace que abre el programa de correo con el mensaje listo.
+     Por qué: Para escribir con un solo clic. */
   function mailtoSoporte(){
     return "mailto:" + encodeURIComponent(correoSoporte()).replace(/%40/g,"@") +
       "?subject=" + encodeURIComponent("Soporte A.D.E.") +
       "&body=" + encodeURIComponent("Hola, necesito ayuda con la Agenda Digital Escolar.\n\nMi usuario: \nMi problema: \n");
   }
 
+  /* ---------- Tamaño legible ----------
+     Qué hace: Convierte bytes en texto como "2 MB".
+     Por qué: Es más fácil de leer que un número largo. */
   function tamano(bytes){
     if(!bytes && bytes !== 0) return "";
     if(bytes < 1024) return bytes + " B";
@@ -181,16 +205,24 @@
     return (bytes / 1024 / 1024).toFixed(1) + " MB";
   }
 
+  /* ---------- Sección desplegable ----------
+     Qué hace: Arma una sección que se abre y se cierra (acordeón).
+     Por qué: Para que las ventanas largas se lean ordenadas. */
   function acc(titulo, html, abierto){
     return '<details' + (abierto ? ' open' : '') + '><summary>' + titulo + '</summary><div class="ai-acc-b">' + html + '</div></details>';
   }
 
+  /* ---------- Botones frecuentes ----------
+     Qué hace: Botones listos de Iniciar sesión, Crear cuenta y Recuperar contraseña.
+     Por qué: Se usan en varias ventanas; así no se repiten. */
   const BTN_LOGIN    = '<button class="ai-btn" data-act="login">Iniciar sesión</button>';
   const BTN_REGISTER = '<button class="ai-btn alt" data-act="register">Crear una cuenta</button>';
   const BTN_FORGOT   = '<button class="ai-btn alt" data-act="forgot">Recuperar mi contraseña</button>';
 
 
-  /* ---------- Contenido de cada botón ---------- */
+  /* ---------- Contenido de cada botón ----------
+     Qué hace: Aquí está el texto de cada ventana: Manual, Soporte, Programas, Biblioteca, Correo y Guía.
+     Por qué: Si se quiere cambiar lo que dice una ventana, se edita aquí. */
 
   const VISTAS = {
 
@@ -403,12 +435,20 @@
   };
 
 
-  /* ---------- La ventana ---------- */
+  /* ---------- La ventana ----------
+     Qué hace: Crea la ventana de información, la abre con el contenido elegido y la cierra.
+     Por qué: Es una sola ventana que cambia de contenido según el botón. */
 
+  /* ---------- Variables de la ventana ----------
+     Qué hace: Guardan la ventana, su cuerpo y el botón que la abrió.
+     Por qué: Para devolver el cursor al botón al cerrar y que se pueda usar con teclado. */
   let ventana = null;
   let cuerpoEl = null;
   let abridor = null;
 
+  /* ---------- Crear la ventana ----------
+     Qué hace: Arma la ventana y conecta sus botones, el cierre con Escape y el clic afuera.
+     Por qué: Se crea solo una vez y se reutiliza. */
   function crearVentana(){
     if(ventana) return;
 
@@ -448,6 +488,9 @@
     });
   }
 
+  /* ---------- Abrir una ventana ----------
+     Qué hace: Pone en la ventana el contenido de la clave pedida y la muestra.
+     Por qué: Es lo que ocurre al hacer clic en cada botón de la izquierda. */
   function abrir(clave){
     const vista = VISTAS[clave];
     if(!vista) return;
@@ -465,6 +508,9 @@
     ventana.querySelector(".ade-info-x").focus();
   }
 
+  /* ---------- Cerrar la ventana ----------
+     Qué hace: Oculta la ventana y devuelve el cursor al botón.
+     Por qué: Para que quien usa teclado no se pierda. */
   function cerrar(sinDevolverFoco){
     if(!ventana) return;
     ventana.classList.remove("open");
@@ -473,27 +519,41 @@
   }
 
 
-  /* ---------- Página pública: botones de la izquierda y tarjetas ----------
-     Los 6 botones (Manual ADE, Soporte…) pasan a ser: cuadrito verde con icono + nombre.
-     En las 4 tarjetas (Organización, Materias, Actividades, Horario) solo se cambia el
-     emoji por un icono: se quedan con su círculo verde y su texto, sin flecha.
-     Todo se hace solo, sin tocar el HTML. */
+  /* ---------- Página pública: botones y tarjetas ----------
+     Qué hace: Cambia los 6 botones de la izquierda por cuadritos verdes con icono y nombre, y cambia el emoji de las 4 tarjetas (Organización, Materias, Actividades, Horario) por un icono.
+     Por qué: Se hace solo desde aquí, sin tocar el HTML. */
 
+  /* ---------- Nombres de los botones ----------
+     Qué hace: Relaciona el texto de cada botón con su ventana.
+     Por qué: Así el código sabe qué ventana abrir. */
   const ETIQUETAS = {
     "manual ade":"manual", "soporte en linea":"soporte", "nuestros programas":"programas",
     "biblioteca digital":"biblioteca", "correo escolar":"correo", "guia ade":"guia",
     "organizacion":"organizacion", "materias":"materias", "actividades":"actividades", "horario":"horario"
   };
+
+  /* ---------- Cuáles son tarjetas ----------
+     Qué hace: Marca cuáles elementos son tarjetas y no botones.
+     Por qué: Las tarjetas se tratan distinto (solo cambia el emoji). */
   const ES_TARJETA = {organizacion:1, materias:1, actividades:1, horario:1};
 
+  /* ---------- Reconocer emojis ----------
+     Qué hace: Expresiones para detectar si un texto tiene emojis.
+     Por qué: Para saber qué hay que reemplazar por un icono. */
   const EMOJI_TEST = /\p{Extended_Pictographic}/u;
   const EMOJI_ALL = /[\p{Extended_Pictographic}\uFE0F\u200D]/gu;
 
+  /* ---------- Normalizar texto ----------
+     Qué hace: Pasa el texto a minúsculas y sin tildes.
+     Por qué: Para encontrar los botones aunque cambien mayúsculas o tildes. */
   function normaliza(t){
     return String(t || "").replace(EMOJI_ALL, "").replace(/\s+/g, " ").trim().toLowerCase()
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   }
 
+  /* ---------- Estilos de la página pública ----------
+     Qué hace: Estilos de los botones y tarjetas nuevos.
+     Por qué: Se agregan desde aquí para no tocar el archivo de estilos. */
   const cssPublica = `
     .ld-ico{display:inline-grid;place-items:center;width:1.15em;height:1.15em;vertical-align:-.2em;flex:none;font-style:normal}
     .ld-ico svg{width:100%;height:100%;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -527,6 +587,9 @@
     .lp-label{min-width:0; overflow-wrap:anywhere}
   `;
 
+  /* ---------- Buscar el botón ----------
+     Qué hace: Desde el texto "Manual ADE" sube hasta el botón o tarjeta que lo contiene.
+     Por qué: Hay que saber qué elemento cambiar sin editar el HTML. */
   // Del texto "Manual ADE" sube hasta el botón/tarjeta que lo contiene (el más grande que sigue diciendo solo eso)
   function contenedorDe(nodo, raiz, clave){
     let el = nodo.parentElement, mejor = el;
@@ -538,12 +601,18 @@
     return mejor;
   }
 
+  /* ---------- HTML a elemento ----------
+     Qué hace: Convierte un texto HTML en un elemento de la página.
+     Por qué: Para poder insertar el icono. */
   function nodoHtml(html){
     const t = document.createElement("div");
     t.innerHTML = html;
     return t.firstChild;
   }
 
+  /* ---------- Cambiar el emoji de una tarjeta ----------
+     Qué hace: Cambia solo el emoji (o imagen) por el icono; lo demás queda como estaba.
+     Por qué: Así la tarjeta conserva su círculo verde y su texto. */
   // Tarjeta: se cambia solo el emoji (o la imagen) por el icono; lo demás queda como estaba
   function cambiarEmojiTarjeta(caja, clave){
 
@@ -570,6 +639,9 @@
     });
   }
 
+  /* ---------- Arreglar la página pública ----------
+     Qué hace: Aplica los estilos, convierte los botones y tarjetas y conecta los clics para abrir las ventanas.
+     Por qué: Es la función que deja todo funcionando. */
   function paginaPublica(){
 
     const raiz = document.getElementById("landingScreen");
@@ -629,14 +701,23 @@
     });
   }
 
+  /* ---------- Arrancar ----------
+     Qué hace: Ejecuta la función de arriba.
+     Por qué: Se llama más de una vez por si la página se dibuja tarde. */
   function arrancarPublica(){
     try{ paginaPublica(); }catch(e){ console.error(e); }
   }
 
+  /* ---------- Cuándo arrancar ----------
+     Qué hace: Espera a que la página cargue; si ya cargó, arranca de una vez. Además lo intenta otra vez a los 400 ms.
+     Por qué: Por si algo de la página se dibuja un poco después. */
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", arrancarPublica);
   else arrancarPublica();
   setTimeout(arrancarPublica, 400);      // por si algo de la página se dibuja un poco después
 
+  /* ---------- Compartir con otros archivos ----------
+     Qué hace: Hace que abrirInfo y cerrarInfo se puedan usar desde fuera.
+     Por qué: Otros archivos (como el HTML) necesitan abrir esas ventanas. */
   window.abrirInfo = abrir;
   window.cerrarInfo = cerrar;
 

@@ -1,4 +1,4 @@
-   api/conexion.php
-   *.sql
-   uploads/
-   api/correo_config.php
+api/conexion.local.php
+api/correo_config.php
+*.sql
+uploads/

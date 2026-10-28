@@ -1,11 +1,19 @@
 /* =========================================================
    MATERIAS
+   Qué hace: Maneja la lista de materias: las tarjetas de Materias, el icono y color de cada una, y la parte de Inicio que muestra "Mis materias de mañana". El administrador puede agregar, editar y borrar materias.
+   Por qué: Las materias se usan en actividades, horario y profesores; tenerlas en un solo lugar hace que todo use los mismos nombres, iconos y colores.
    ========================================================= */
- 
+
+/* ---------- Lista de materias ----------
+   Qué hace: Guarda una copia en memoria de las materias mientras la página está abierta.
+   Por qué: Los datos reales están en la base de datos; así no se pide al servidor cada vez que se necesitan. */
 // Las materias viven en la base de datos (api/materias.php).
 // Aquí solo se guarda una copia en memoria mientras la página está abierta.
 let subjects = [];
 
+/* ---------- Traer materias del servidor ----------
+   Qué hace: Pide la lista de materias y la guarda.
+   Por qué: Para que todos vean las materias actuales. */
 async function cargarMateriasServidor(){
   try{
     const resp = await fetch("api/materias.php", {credentials:"same-origin", cache:"no-store"});
@@ -18,6 +26,9 @@ async function cargarMateriasServidor(){
   }
 }
 
+/* ---------- Grupos y sus materias ----------
+   Qué hace: Guarda la lista de grupos (6-1, 7-2…) y, para cada uno, las materias según su horario.
+   Por qué: Varias pantallas necesitan esta lista para ofrecer grupos. */
 // Grupos del colegio (vienen de la base de datos) y las materias de cada grupo (según su horario).
 // Varias pantallas leen ADE_CURRICULUM.groups para ofrecer la lista de grupos.
 window.ADE_CURRICULUM = {
@@ -35,6 +46,9 @@ window.ADE_CURRICULUM = {
   }
 };
 
+/* ---------- Traer grupos del servidor ----------
+   Qué hace: Pide los grupos del colegio.
+   Por qué: Los grupos vienen de la base de datos. */
 async function cargarGruposServidor(){
   try{
     const resp = await fetch("api/grupos.php", {cache:"no-store"});
@@ -48,6 +62,9 @@ async function cargarGruposServidor(){
 }
 cargarGruposServidor();
 
+/* ---------- Pedir los datos al abrir ----------
+   Qué hace: Al abrir la página pide las materias y, cuando llegan, vuelve a dibujar lo que las muestra.
+   Por qué: Así la pantalla se actualiza sola apenas llegan los datos. */
 // Se piden al abrir la página; cuando llegan, se vuelve a dibujar lo que las muestra
 cargarMateriasServidor().then(ok => {
   if(ok && typeof currentUser !== "undefined" && currentUser){
@@ -60,11 +77,8 @@ cargarMateriasServidor().then(ok => {
 });
 
 /* ---------- Icono de cada materia ----------
-   Cada materia tiene su icono y su color (calculadora para Matemáticas, globo
-   para Sociales, hoja para Naturales…). Se ve en las tarjetas de Materias, en
-   "Mis materias" de Inicio y en cada actividad. Si agregas una materia nueva
-   que no está en la lista, recibe un icono de cuaderno con un color propio.
-   Para cambiar uno: edita SUBJECT_ICONS (dibujo y color) o SUBJECT_ICON_RULES. */
+   Qué hace: Cada materia tiene su icono y su color (calculadora para Matemáticas, globo para Sociales…). Una materia nueva recibe un cuaderno con un color propio.
+   Por qué: Los iconos ayudan a reconocer las materias de un vistazo. Para cambiar uno se edita SUBJECT_ICONS o SUBJECT_ICON_RULES. */
 
 const SUBJECT_ICONS = {
   matematicas:    {c:"#14b8a6", d:'<rect x="5" y="2.8" width="14" height="18.4" rx="2.6"/><rect x="8.2" y="6" width="7.6" height="3.4" rx=".9"/><path d="M8.6 13.2h.01M12 13.2h.01M15.4 13.2h.01M8.6 16.9h.01M12 16.9h.01M15.4 16.9h.01" stroke-width="2.6"/>'},
@@ -84,9 +98,15 @@ const SUBJECT_ICONS = {
   tecnologia:     {c:"#55637d", d:'<rect x="6.6" y="6.6" width="10.8" height="10.8" rx="2"/><rect x="9.8" y="9.8" width="4.4" height="4.4" rx=".8"/><path d="M9.6 3v3.6M14.4 3v3.6M9.6 17.4V21M14.4 17.4V21M3 9.6h3.6M3 14.4h3.6M17.4 9.6H21M17.4 14.4H21"/>'}
 };
 
+/* ---------- Icono de reserva ----------
+   Qué hace: Dibujo de cuaderno para materias que no tienen icono propio.
+   Por qué: Para que toda materia nueva se vea bien. */
 // Icono de reserva para materias nuevas (cuaderno)
 const SUBJECT_ICON_DEFAULT = '<path d="M6 3.5h11.5A1.5 1.5 0 0 1 19 5v14.5a1.5 1.5 0 0 1-1.5 1.5H7a2 2 0 0 1-2-2V4.5a1 1 0 0 1 1-1z"/><path d="M9 8h6M9 11.5h4"/>';
 
+/* ---------- Cómo reconocer cada materia ----------
+   Qué hace: Reglas que relacionan palabras ("matem", "quimic"…) con un icono, sin importar tildes ni mayúsculas.
+   Por qué: Así "Matemáticas 7" y "matematicas" usan el mismo icono. El orden importa: "educación física" va antes que "física". */
 // Cómo reconocer cada materia por su nombre (sin importar tildes ni mayúsculas).
 // El orden importa: "educación física" va antes que "física".
 const SUBJECT_ICON_RULES = [
@@ -107,12 +127,18 @@ const SUBJECT_ICON_RULES = [
   [/tecnolog|informat|sistemas|computa|program|robotic/, "tecnologia"]
 ];
 
+/* ---------- Buscar el icono por nombre ----------
+   Qué hace: Revisa las reglas de arriba y devuelve qué icono le toca a la materia.
+   Por qué: Si no coincide ninguna regla, se usa el icono de reserva. */
 function subjectIconKey(name){
   const t = normText(name);
   for(const [re, key] of SUBJECT_ICON_RULES){ if(re.test(t)) return key; }
   return "";
 }
 
+/* ---------- Estilos de los iconos ----------
+   Qué hace: Agrega a la página los estilos del cuadrito de color, una sola vez.
+   Por qué: Así el icono se ve bien sin tocar el archivo de estilos. */
 function ensureSubjectIconStyle(){
 
   if(document.getElementById("subjectIconStyle")) return;
@@ -153,6 +179,9 @@ function ensureSubjectIconStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Dibujar el icono ----------
+   Qué hace: Devuelve el cuadrito de color con el dibujo de la materia (tamaño normal o pequeño).
+   Por qué: Lo usan las tarjetas, Inicio y las actividades. */
 // Devuelve el icono (cuadrito de color) de una materia. size = "sm" para el más pequeño.
 function subjectIcon(name, size){
 
@@ -179,7 +208,9 @@ function subjectIcon(name, size){
 
  
  
-/* ---------- Estilos: tarjetas de materias más compactas ---------- */
+/* ---------- Estilos de las tarjetas ----------
+   Qué hace: Agrega los estilos de las tarjetas de materias para que se vean más compactas.
+   Por qué: Para que quepan más materias en pantalla. */
  
 function ensureSubjectsStyle(){
  
@@ -239,7 +270,9 @@ function ensureSubjectsStyle(){
 }
  
  
-/* ---------- Dibujar y administrar materias ---------- */
+/* ---------- Dibujar las materias ----------
+   Qué hace: Muestra una tarjeta por materia en la página Materias y en Inicio.
+   Por qué: Si no hay materias, se muestra un aviso en vez de dejar el espacio vacío. */
  
 function renderSubjects(){
   ensureSubjectsStyle();
@@ -250,15 +283,13 @@ function renderSubjects(){
 }
 
 
-/* =========================================================
-   INICIO → "Mis materias de mañana"
-   Muestra las materias que le tocan al estudiante el día siguiente (según el horario
-   de su grupo), con sus tareas pendientes para verlas y entregarlas desde ahí.
-   - Si mañana es sábado o domingo, muestra el próximo día de clases (el lunes).
-   - Profesores: las materias que dictan mañana, con sus grupos y entregas.
-   - Administrador (o cuentas sin horario): se ven las materias de siempre.
-   ========================================================= */
+/* ---------- Inicio: "Mis materias de mañana" ----------
+   Qué hace: Muestra las materias que le tocan a la persona el siguiente día de clases, con sus tareas pendientes. Si mañana es fin de semana, muestra el lunes. El profesor ve sus materias, grupos y entregas.
+   Por qué: Así cada quien ve de inmediato qué viene y qué debe entregar, sin buscar en el horario. Administrador y cuentas sin horario ven las materias de siempre. */
 
+/* ---------- Estilos de "mañana" ----------
+   Qué hace: Agrega los estilos de las tarjetas de "Mis materias de mañana".
+   Por qué: Se agregan desde aquí para no tocar el archivo de estilos. */
 function ensureTomorrowStyle(){
 
   if(document.getElementById("tomorrowStyle")) return;
@@ -337,6 +368,9 @@ function ensureTomorrowStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Próximo día de clases ----------
+   Qué hace: Calcula mañana; si cae en fin de semana, salta al lunes.
+   Por qué: No hay clases sábado ni domingo. */
 // Próximo día de clases después de hoy (mañana; si cae en fin de semana, el lunes)
 function nextSchoolDay(){
   const d = new Date();
@@ -346,6 +380,9 @@ function nextSchoolDay(){
   return {date:d, rolled:rolled};
 }
 
+/* ---------- Clases de un día ----------
+   Qué hace: Saca las clases de ese día según el horario de la cuenta (su grupo o sus clases como profesor).
+   Por qué: Cada persona tiene un horario distinto. */
 // Clases de ese día para esta cuenta. Devuelve null si la cuenta no tiene horario propio.
 function classesOfDay(dayName){
 
@@ -381,10 +418,16 @@ function classesOfDay(dayName){
   return null;
 }
 
+/* ---------- Nombre completo ----------
+   Qué hace: Convierte el nombre corto de la materia en el nombre completo.
+   Por qué: Para mostrar nombres bien escritos. */
 function subjectFullName(raw){
   return typeof ttSubjectName === "function" ? ttSubjectName(raw) : raw;
 }
 
+/* ---------- Día que se muestra en Inicio ----------
+   Qué hace: Estudiantes: el próximo día de clases. Profesores: hoy si tienen clases; si no, el próximo día que sí tengan.
+   Por qué: Al profesor le sirve ver sus clases de hoy, y al estudiante prepararse para mañana. */
 // Día que se muestra en Inicio.
 // Estudiantes: el próximo día de clases (como siempre).
 // Profesores: si hoy tienen clases, las de hoy; si no, el próximo día en que sí tengan clases.
@@ -416,6 +459,9 @@ function homeTargetDay(names){
   return Object.assign(nd, {kind: nd.rolled ? "day" : "tomorrow", classes:classes});
 }
 
+/* ---------- Título del bloque ----------
+   Qué hace: Cambia el título según el día ("Mis materias de hoy", "de mañana" o el nombre del día).
+   Por qué: Para que la persona sepa qué día está viendo. */
 // Pone el título "Mis materias de mañana" (o "Mis materias" como antes)
 function setHomeSubjectsTitle(nd){
   let h = null;
@@ -435,6 +481,9 @@ function setHomeSubjectsTitle(nd){
     '<small class="tm-day">' + escapeHtml(dia.charAt(0).toUpperCase() + dia.slice(1)) + '</small>';
 }
 
+/* ---------- Ir a las actividades de una materia ----------
+   Qué hace: Filtra las actividades por la materia elegida y abre esa página.
+   Por qué: Es lo que pasa al hacer clic en una tarjeta de materia. */
 function goToSubjectActivities(name){
   if(typeof ACT_FILTER !== "undefined"){
     ACT_FILTER.subject = name; ACT_FILTER.status = "all"; ACT_FILTER.q = ""; ACT_FILTER.date = "all"; ACT_FILTER.group = "";
@@ -445,8 +494,14 @@ function goToSubjectActivities(name){
   if(typeof renderActivityList === "function") renderActivityList();
 }
 
+/* ---------- Icono de subir ----------
+   Qué hace: Dibujo de flecha hacia arriba, para el botón de entregar.
+   Por qué: Se guarda como texto y no se necesita una imagen aparte. */
 const TM_UPLOAD = '<svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>';
 
+/* ---------- Tarjeta de una materia de mañana ----------
+   Qué hace: Arma la tarjeta con el nombre, horas, grupo o salón y las actividades pendientes (o entregas, para el profesor).
+   Por qué: Desde la tarjeta se ve y se entrega la tarea sin cambiar de página. */
 function tomorrowCard(item){
 
   const name = item.name;
@@ -500,6 +555,9 @@ function tomorrowCard(item){
     '</div>' + body + '</div>';
 }
 
+/* ---------- Ficha pequeña de materia ----------
+   Qué hace: Botón pequeño con el icono, el nombre y cuántas actividades tiene la materia.
+   Por qué: Se usa en cuentas sin horario propio. */
 // Ficha pequeña de una materia (Inicio, cuentas sin horario): icono + nombre + cuántas actividades
 function homeSubjectChip(s){
   const n = countActivities(s);
@@ -509,6 +567,9 @@ function homeSubjectChip(s){
     '</button>';
 }
 
+/* ---------- Dibujar las materias en Inicio ----------
+   Qué hace: Decide qué día mostrar, junta las clases por materia, las ordena por hora y dibuja las tarjetas.
+   Por qué: Si una materia está en varias horas, se junta en una sola tarjeta para no repetirla. */
 function renderHomeSubjects(list, empty){
 
   const box = $("homeSubjects");
@@ -553,12 +614,18 @@ function renderHomeSubjects(list, empty){
     : '<div class="card empty">' + (nd.kind === "none" ? "No tienes clases programadas en los próximos días." : (nd.rolled ? "El lunes no tienes clases." : "Mañana no tienes clases.")) + '</div>';
 }
 
+/* ---------- Hora de inicio en minutos ----------
+   Qué hace: Convierte "6:52 - 7:45" en 412 minutos.
+   Por qué: Con números es fácil ordenar las clases de la mañana a la tarde. */
 // Minutos desde medianoche de la hora de inicio ("6:52 - 7:45" → 412) para ordenar
 function ttParseStart(time){
   const m = String(time || "").match(/(\d{1,2}):(\d{2})/);
   return m ? Number(m[1]) * 60 + Number(m[2]) : 9999;
 }
  
+/* ---------- Pedir el nombre de una materia ----------
+   Qué hace: Abre una ventana para escribir el nombre y revisa que no esté vacío ni repetido.
+   Por qué: Evita materias sin nombre o duplicadas. */
 // Pide un nombre en una ventana y valida que no esté vacío ni repetido. Devuelve null si se cancela.
 async function askSubjectName(message, current = "", skipIndex = -1){
   const clean = await adePrompt(message, current, {
@@ -569,8 +636,14 @@ async function askSubjectName(message, current = "", skipIndex = -1){
   return clean ? clean.trim() : null;
 }
 
+/* ---------- Guardando… ----------
+   Qué hace: Marca si se está guardando una materia.
+   Por qué: Evita guardar dos veces por clics seguidos. */
 let materiaBusy = false;
 
+/* ---------- Guardar en el servidor ----------
+   Qué hace: Manda agregar, editar o borrar una materia y luego vuelve a leer la lista.
+   Por qué: Así la pantalla muestra lo que realmente quedó guardado. */
 // accion: "agregar" | "editar" | "borrar". Guarda en el servidor y vuelve a leer la lista.
 async function guardarMateria(accion, actual, nombre){
   if(materiaBusy) return false;
@@ -585,6 +658,9 @@ async function guardarMateria(accion, actual, nombre){
   return true;
 }
 
+/* ---------- Agregar materia ----------
+   Qué hace: Revisa el permiso, pide el nombre y la crea.
+   Por qué: Solo quien tiene permiso puede crear materias. */
 async function addSubject(){
   if(!requirePermission("create","materia")) return;
   const name = await askSubjectName("Nombre de la nueva materia");
@@ -592,6 +668,9 @@ async function addSubject(){
   await guardarMateria("agregar", "", name);
 }
 
+/* ---------- Editar materia ----------
+   Qué hace: Pide el nuevo nombre y lo guarda.
+   Por qué: Para corregir errores de escritura. */
 async function editSubject(i){
   if(!requirePermission("edit","materia")) return;
   const name = await askSubjectName("Nuevo nombre de la materia", subjects[i], i);
@@ -599,12 +678,18 @@ async function editSubject(i){
   await guardarMateria("editar", subjects[i], name);
 }
 
+/* ---------- Borrar materia ----------
+   Qué hace: Pide confirmación y borra la materia.
+   Por qué: Es definitivo, por eso se pregunta antes. */
 async function deleteSubject(i){
   if(!requirePermission("delete","materia")) return;
   if(!await adeConfirm(`Se borrará la materia "${subjects[i]}".`, {title:"Borrar materia", ok:"Sí, borrar", danger:true})) return;
   await guardarMateria("borrar", subjects[i], "");
 }
  
+/* ---------- Texto de la tarjeta ----------
+   Qué hace: Escribe quién dicta la materia y en cuántos grupos está (distinto para estudiante, profesor y administrador).
+   Por qué: Cada rol necesita un dato diferente. */
 // Texto de debajo del nombre (antes decía "Materia escolar" en todas): quién la dicta y en cuántos grupos
 function subjectInfo(subject){
 
@@ -635,6 +720,9 @@ function subjectInfo(subject){
   return who + (groups ? " · " + groups + (groups === 1 ? " grupo" : " grupos") : "");
 }
 
+/* ---------- Tarjeta de materia ----------
+   Qué hace: Arma la tarjeta con icono, nombre, cantidad de actividades y botones de editar o borrar si hay permiso.
+   Por qué: Es lo que se ve en la página Materias. */
 function subjectCard(s){
   const i = subjects.indexOf(s);
   const canEdit = hasPermission("edit","materia");
@@ -661,6 +749,9 @@ function subjectCard(s){
   `;
 }
  
+/* ---------- Contar actividades ----------
+   Qué hace: Cuenta las actividades de la materia que le corresponden a la cuenta (su grupo, sus grupos o todas).
+   Por qué: Para mostrar el número en cada tarjeta. */
 // Actividades totales de la materia en el grupo de la cuenta
 // (estudiante = su grupo · profesor = sus grupos · admin = todas), sin importar quién dicta la materia
 function countActivities(subject){

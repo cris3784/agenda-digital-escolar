@@ -1,14 +1,18 @@
 /* =========================================================
    CALENDARIO ESCOLAR
-   - Clic en un día: se ven sus eventos a la derecha.
-   - El administrador puede añadir, editar y borrar con un
-     formulario (sin ventanas prompt).
-   - Este archivo crea solo su formulario y sus estilos, así
-     que no hace falta agregar nada al HTML.
+   Qué hace: Muestra el calendario del mes; al hacer clic en un día se ven sus eventos y actividades a la derecha. Quien tiene permiso puede crear, editar y borrar eventos.
+   Por qué: Es el lugar donde el colegio y los profesores avisan fechas importantes. Este archivo crea solo su formulario y sus estilos, así no hace falta agregar nada al HTML.
    ========================================================= */
+
+/* ---------- Los eventos ----------
+   Qué hace: Guarda en un objeto los eventos organizados por día (ej. "2026-10-23").
+   Por qué: Buscar los eventos de un día así es rápido; los datos reales vienen de la base de datos. */
 // Los eventos viven en la base de datos (api/eventos.php): {"2026-10-23": [{id, title, desc, groups?, by, byName, byRole, subject}]}
 let calendarEvents = {};
 
+/* ---------- Traer eventos del servidor ----------
+   Qué hace: Pide al servidor todos los eventos que le corresponden a esta cuenta.
+   Por qué: Los eventos están en la base de datos para que todos vean lo mismo. */
 async function cargarEventosServidor(){
   try{
     const resp = await fetch("api/eventos.php", {credentials:"same-origin", cache:"no-store"});
@@ -21,6 +25,9 @@ async function cargarEventosServidor(){
   }
 }
 
+/* ---------- Recargar eventos ----------
+   Qué hace: Vuelve a pedir los eventos y redibuja la pantalla.
+   Por qué: Para ver los cambios hechos por otras personas. */
 // Vuelve a pedir los eventos y redibuja la pantalla
 async function recargarEventos(){
   const ok = await cargarEventosServidor();
@@ -28,24 +35,32 @@ async function recargarEventos(){
   return ok;
 }
 
+/* ---------- Mes y día seleccionados ----------
+   Qué hace: Guarda qué mes se está mirando, qué día se eligió y si se está editando un evento.
+   Por qué: El calendario necesita recordar dónde está la persona para no perderla al redibujar. */
 // El calendario abre siempre en el mes actual (cambia solo cada mes)
 let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let selectedCalendarDay = null;   // día seleccionado (AAAA-MM-DD)
 let calendarEditing = null;       // {key, index} cuando se edita un evento
  
+/* ---------- Fecha en texto ----------
+   Qué hace: Convierte año, mes y día en texto tipo "2026-10-23".
+   Por qué: Es la "llave" que se usa para buscar los eventos de cada día. */
 function calendarKey(year, month, day){
   return year + "-" + String(month + 1).padStart(2,"0") + "-" + String(day).padStart(2,"0");
 }
  
+/* ---------- Limpiar textos ----------
+   Qué hace: Cambia símbolos especiales (< > & ") por versiones seguras.
+   Por qué: Evita que lo que escribe una persona dañe la página o meta código. Otros archivos también usan esta función. */
 function escapeHtml(text){
   return String(text).replace(/[&<>'"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c];});
 }
  
  
 /* ---------- Tipos de evento y colores ----------
-   Colegio / institucional (formación, izada de bandera, paros, reuniones…) = turquesa
-   Profesores (lo que publica cada profesor)                                   = violeta
-   Para cambiar un color, edita CAL_KINDS. */
+   Qué hace: Define los tipos (Colegio, Profesores, Actividades) y el color de cada uno.
+   Por qué: Los colores ayudan a distinguir de un vistazo quién publicó cada cosa. Para cambiar un color se edita CAL_KINDS. */
 
 const CAL_KINDS = {
   colegio:     {label:"Colegio",     chip:"Colegio",     color:"#22d3ee"},
@@ -53,6 +68,9 @@ const CAL_KINDS = {
   actividad:  {label:"Actividades", chip:"Actividad",  color:"#f59e0b"}
 };
 
+/* ---------- Actividades por día ----------
+   Qué hace: Agrupa por fecha las actividades con entrega que le corresponden a la cuenta.
+   Por qué: Así las entregas también aparecen en el calendario. */
 // Actividades (con fecha de entrega) que le corresponden a la cuenta, agrupadas por día: {"2026-10-19":[{a, i}]}
 function activitiesByDate(){
   const map = {};
@@ -64,11 +82,17 @@ function activitiesByDate(){
   return map;
 }
 
+/* ---------- Tipo de evento ----------
+   Qué hace: Si lo publicó un profesor es "profesor"; todo lo demás es del colegio.
+   Por qué: Decide el color y la etiqueta del evento. */
 // ¿Quién publicó el evento? Si lo hizo un profesor = "profesor"; todo lo demás es del colegio.
 function calKind(e){
   return e && e.byRole === "profesor" ? "profesor" : "colegio";
 }
 
+/* ---------- Iconos ----------
+   Qué hace: Dibujos pequeños (calendario, flechas, más) guardados como texto.
+   Por qué: Así no hace falta cargar imágenes aparte. */
 const CAL_ICONS = {
   cal:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 13.6h.01M12 13.6h.01M16 13.6h.01M8 17h.01M12 17h.01M16 17h.01" stroke-width="2.4"/></svg>',
   left:'<svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg>',
@@ -76,12 +100,18 @@ const CAL_ICONS = {
   plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'
 };
 
+/* ---------- Panel vacío ----------
+   Qué hace: Texto que se muestra a la derecha cuando todavía no se eligió un día.
+   Por qué: Para que el panel no se vea vacío ni confuso. */
 function calEmptyDetails(){
   return '<div class="cal2-empty">' +
     '<div class="cal2-orb"><span class="sp s1">✦</span><span class="sp s2">✦</span><span class="sp s3">✦</span>' + CAL_ICONS.cal + '</div>' +
     '<p>Selecciona un día con una actividad para ver la información completa.</p></div>';
 }
 
+/* ---------- Crear la pantalla del calendario ----------
+   Qué hace: Agrega los estilos (colores y formas) y arma la estructura de la página, solo una vez.
+   Por qué: Así el calendario funciona sin tocar el HTML. */
 function ensureCalendarUI(){
 
   // 1) Estilos
@@ -265,10 +295,15 @@ function ensureCalendarUI(){
 
 }
 
+/* ---------- Crear la pantalla al cargar ----------
+   Qué hace: Llama a la función de arriba.
+   Por qué: Para que el calendario ya esté armado cuando se necesite. */
 ensureCalendarUI();
  
  
-/* ---------- Eventos que le corresponden a cada cuenta ---------- */
+/* ---------- Eventos de cada cuenta ----------
+   Qué hace: Funciones para sacar los eventos de un día y el texto con quién lo publicó.
+   Por qué: No todos ven todos los eventos: algunos son solo de ciertos grupos. */
 
 // Devuelve [{e, i}] con el evento y su posición real en la lista del día
 function eventsOfDay(key){
@@ -278,6 +313,10 @@ function eventsOfDay(key){
 }
 
 // Texto "Prof. Fulano · Matemáticas · Grupo 7-1" de un evento publicado por un profesor
+
+/* ---------- Texto del evento ----------
+   Qué hace: Arma el texto "Profesor · Materia · Grupo" de un evento publicado por un profesor.
+   Por qué: Para saber de dónde viene el aviso. */
 function eventMeta(e){
   const parts = [];
   if(e.byRole === "profesor" && e.byName) parts.push(e.byName);
@@ -287,7 +326,9 @@ function eventMeta(e){
 }
 
 
-/* ---------- Dibujar el calendario ---------- */
+/* ---------- Dibujar el calendario ----------
+   Qué hace: Pone el título del mes, los días en la cuadrícula, marca el día de hoy y los días con eventos.
+   Por qué: Se vuelve a ejecutar cada vez que cambia el mes o los eventos. El botón "Nuevo evento" solo lo ve quien puede crearlos. */
  
 function renderCalendar(){
   ensureCalendarUI();
@@ -357,7 +398,9 @@ function renderCalendar(){
 }
  
  
-/* ---------- Detalle del día ---------- */
+/* ---------- Detalle del día ----------
+   Qué hace: Muestra a la derecha los eventos y actividades del día elegido, con botones de editar y borrar si hay permiso.
+   Por qué: Es donde se lee la información completa de cada día. */
  
 function showCalendarDay(key, skipGrid){
   const box = document.getElementById("calendarDetails");
@@ -421,7 +464,9 @@ function showCalendarDay(key, skipGrid){
 }
  
  
-/* ---------- Formulario (ventana) ---------- */
+/* ---------- Formulario de evento ----------
+   Qué hace: Abre la ventana para escribir fecha, título, descripción y para quién es el evento.
+   Por qué: Reutiliza la misma ventana de "Nuevo aviso". El profesor solo puede publicar para sus propios grupos. */
  
 // Formulario: la misma ventana que "Nuevo aviso" (fecha, título, descripción y para quién es)
 async function openCalendarModal(key, event){
@@ -446,7 +491,9 @@ async function openCalendarModal(key, event){
 }
  
  
-/* ---------- Añadir / editar / borrar ---------- */
+/* ---------- Añadir y editar eventos ----------
+   Qué hace: Preparan el formulario para crear un evento nuevo o modificar uno existente.
+   Por qué: Se revisa el permiso primero: el profesor solo edita lo suyo. */
  
 function addCalendarEvent(key){
   if(!requirePermission("create","calendario")) return;
@@ -456,6 +503,9 @@ function addCalendarEvent(key){
   openCalendarModal(date, null);
 }
  
+/* ---------- Editar evento ----------
+   Qué hace: Busca el evento, revisa que se pueda modificar y abre el formulario con sus datos.
+   Por qué: Para que nadie edite eventos de otra persona. */
 function editCalendarEvent(key, index){
   if(!requirePermission("edit","calendario")) return;
   const event = calendarEvents[key]?.[index];
@@ -465,8 +515,14 @@ function editCalendarEvent(key, index){
   openCalendarModal(key, event);
 }
  
+/* ---------- Guardando… ----------
+   Qué hace: Marca si se está guardando un evento.
+   Por qué: Evita guardar dos veces por clics seguidos. */
 let calendarBusy = false;
 
+/* ---------- Guardar el evento ----------
+   Qué hace: Revisa los datos, los manda al servidor, avisa en la campanita a quienes les corresponde y muestra el día del evento.
+   Por qué: Así quienes deben enterarse reciben la notificación, y quien guardó ve el resultado enseguida. */
 async function saveCalendarEvent(r0){
   const date  = r0.date;
   const title = r0.title.trim();
@@ -526,6 +582,9 @@ async function saveCalendarEvent(r0){
   renderCalendar();
 }
  
+/* ---------- Borrar evento ----------
+   Qué hace: Revisa el permiso, pide confirmación y lo elimina en el servidor.
+   Por qué: Borrar es definitivo, por eso se pregunta antes. El profesor no puede borrar lo del administrador. */
 async function deleteCalendarEvent(key, index){
   if(!requirePermission("delete","calendario")) return;
   const event = calendarEvents[key]?.[index];
@@ -542,7 +601,9 @@ async function deleteCalendarEvent(key, index){
 }
  
  
-/* ---------- Botón "Hoy": vuelve al mes actual y selecciona el día de hoy ---------- */
+/* ---------- Botón "Hoy" ----------
+   Qué hace: Vuelve al mes actual y selecciona el día de hoy.
+   Por qué: Para regresar rápido si la persona se fue a otro mes. */
 
 function goToCalendarToday(){
   const now = new Date();
@@ -552,7 +613,9 @@ function goToCalendarToday(){
 }
 
 
-/* ---------- Cambiar de mes ---------- */
+/* ---------- Cambiar de mes ----------
+   Qué hace: Avanza o retrocede un mes y redibuja el calendario.
+   Por qué: Es lo que hacen las flechas ‹ y › del calendario. */
  
 function changeCalendarMonth(delta){
   calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth()+delta, 1);

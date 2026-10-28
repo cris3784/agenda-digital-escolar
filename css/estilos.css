@@ -400,3 +400,14 @@ html::after{
   #mainApp .subjects,#mainApp #subjectList{grid-template-columns:1fr}
   #mainApp .nav button{font-size:18px}
 }
+
+/* ===== FONDO OSCURO SUAVE (entre la entrada y el azul original) ===== */
+:root{
+  --ambient:
+    radial-gradient(ellipse 70% 55% at 50% 42%, rgba(18,105,255,.2), transparent 70%),
+    linear-gradient(180deg,#010612 0%,#04184a 52%,#020a1c 100%);
+}
+.amb-mist .l{background:linear-gradient(180deg,#010612 0%,#04184a 52%,#020a1c 100%)}
+.amb-mist .v{background:radial-gradient(ellipse at 50% 55%, transparent 48%, rgba(0,8,24,.55) 100%)}
+.amb-mist .r{background:radial-gradient(ellipse 70% 55% at 50% 42%, rgba(18,105,255,.2), transparent 70%)}
+.amb-mist .m1,.amb-mist .m2,.amb-mist .m3,.amb-mist .m4{opacity:.65}

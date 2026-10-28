@@ -1,12 +1,28 @@
 <?php
+/* =========================================================
+   FUNCIONES DE NOTIFICACIONES
+   Qué hace: Reúne las funciones que comparten los archivos de notificaciones: qué notificaciones ve cada cuenta y cómo se marcan como leídas.
+   Por qué: Así las reglas de quién ve qué están en un solo lugar y no se repiten en cada archivo.
+   ========================================================= */
+
 // Funciones compartidas por los archivos de notificaciones.
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae actividades_lib.php, que a su vez carga util.php y tiene las funciones de permisos.
+   Por qué: Para no repetir código. */
 require __DIR__ . '/actividades_lib.php';
 
+/* ---------- Columna de lectura ----------
+   Qué hace: Devuelve el nombre de la columna de la tabla lecturas que corresponde al rol (estudiante, profesor, admin o acudiente).
+   Por qué: Cada rol guarda sus lecturas en una columna distinta. */
 function columna_lectura($rol) {
     $m = ['estudiante' => 'lec_est_estudiante', 'profesor' => 'lec_pro_profesor', 'admin' => 'lec_adm_administrador', 'acudiente' => 'lec_acu_acudiente'];
     return $m[$rol];
 }
 
+/* ---------- ¿Le corresponde esta notificación? ----------
+   Qué hace: Revisa, una por una, las reglas: lo que publicó la propia persona no se le avisa; las dirigidas a una cuenta solo llegan a esa cuenta; las "solo admin" son del administrador; y las de grupo llegan a quien pertenece o atiende ese grupo.
+   Por qué: Es la regla original de visibilidad; también se usa como segunda revisión de seguridad. */
 // ¿Le corresponde esta notificación a quien tiene la sesión?
 function notificacion_visible($c, $n) {
     // Lo que publiqué yo no me avisa a mí
@@ -42,6 +58,9 @@ function notificacion_visible($c, $n) {
     return $g === $c['grupo'];
 }
 
+/* ---------- Notificaciones que puede ver la cuenta ----------
+   Qué hace: Arma una consulta SQL con las reglas de visibilidad de cada rol (sin lo que publicó la propia persona, con lo dirigido a ella y lo de sus grupos) y trae las últimas 400. Después pasa cada una por notificacion_visible() como segunda revisión.
+   Por qué: El filtro se hace en la consulta para no traer las del colegio entero; la revisión extra evita errores. */
 // Las últimas notificaciones que esta cuenta puede ver (todas las filas, sin juntar lotes).
 // El filtro se hace en la consulta SQL: ya no se traen las del colegio entero.
 function notificaciones_visibles($conexion, $c) {
@@ -119,6 +138,9 @@ function notificaciones_visibles($conexion, $c) {
     return $vis;
 }
 
+/* ---------- Marcar una notificación como leída ----------
+   Qué hace: Si la cuenta todavía no la tiene marcada, guarda una lectura con la hora actual.
+   Por qué: Así no se duplican las lecturas aunque la página lo pida varias veces. */
 function marcar_leida($conexion, $c, $codigoNotificacion) {
     $col = columna_lectura($c['rol']);
     $ya = filas($conexion, "SELECT lec_codigo FROM lecturas WHERE lec_not_notificacion = ? AND {$col} = ? LIMIT 1", 'ii', [$codigoNotificacion, $c['codigo']]);

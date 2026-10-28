@@ -1,21 +1,28 @@
 /* =========================================================
-   CAMBIAR MI CORREO (Mi perfil)
-   - Agrega un botón "Cambiar" junto al correo
-   - Pide el correo nuevo y la contraseña actual, manda un código al correo NUEVO
-     y solo cuando se escribe el código el correo cambia.
+   CAMBIAR MI CORREO (MI PERFIL)
+   Qué hace: Agrega un botón "Cambiar" junto al correo en Mi perfil para que la persona pueda poner otro correo.
+   Por qué: Así el cambio es seguro: se pide la contraseña y se manda un código al correo NUEVO; el correo solo cambia cuando se escribe ese código.
    Cargar DESPUÉS de perfil.js:
    <script src="js/correo_cambiar.js"></script>
    ========================================================= */
 
 (function(){
 
+  /* ---------- Variables del archivo ----------
+     Qué hace: Guardan si hay un envío en curso (busy), en qué paso va la ventana (paso) y el correo/clave escritos (datos).
+     Por qué: busy evita que se mande dos veces si se da clic seguido; datos sirve para poder "Reenviar código" sin pedir todo otra vez. */
   let busy = false;
   let paso = 1;
   let datos = {correo:"", clave:""};   // se guardan solo mientras la ventana está abierta (para "Reenviar código")
 
+  /* ---------- Atajo $id ----------
+     Qué hace: Es una forma corta de escribir document.getElementById.
+     Por qué: Se usa muchas veces y así el código queda más corto y fácil de leer. */
   const $id = id => document.getElementById(id);
 
-  /* ---------- Botón junto al correo ---------- */
+  /* ---------- Botón "Cambiar" junto al correo ----------
+     Qué hace: Crea el botón "Cambiar" al lado del botón "Verificar" y lo oculta si el usuario es administrador.
+     Por qué: El administrador no cambia su correo desde aquí, y se agrupan los dos botones para que la fila del perfil no se mueva. */
 
   function asegurarBoton(){
 
@@ -47,6 +54,10 @@
   }
 
   // Cada vez que perfil.js actualiza el botón "Verificar", se revisa que "Cambiar" esté puesto
+
+  /* ---------- Mantener el botón puesto ----------
+     Qué hace: Cada vez que perfil.js actualiza el botón "Verificar", este código revisa que "Cambiar" siga en su lugar.
+     Por qué: perfil.js redibuja el botón y podría borrar el nuestro; así siempre vuelve a aparecer. */
   const original = window.updateOwnEmailButton;
   if(typeof original === "function"){
     window.updateOwnEmailButton = function(){
@@ -57,7 +68,9 @@
   }
   document.addEventListener("DOMContentLoaded", asegurarBoton);
 
-  /* ---------- Ventana ---------- */
+  /* ---------- Crear la ventana (modal) ----------
+     Qué hace: Arma la ventana emergente con dos pasos: (1) escribir correo nuevo y contraseña, (2) escribir el código de 6 dígitos.
+     Por qué: Se crea desde JavaScript para no tener que modificar el index.html. */
 
   function crearVentana(){
 
@@ -100,6 +113,9 @@
       </div>`;
     document.body.appendChild(modal);
 
+    /* ---------- Acciones de la ventana ----------
+       Qué hace: Conecta los botones y teclas: cerrar con ✕, clic afuera o Escape; Enter para avanzar; el código solo acepta números.
+       Por qué: Hace que la ventana sea cómoda de usar y evita que se escriban letras en el código. */
     $id("mcClose").addEventListener("click", cerrar);
     modal.addEventListener("click", e => { if(e.target === modal) cerrar(); });
     document.addEventListener("keydown", e => { if(e.key === "Escape") cerrar(); });
@@ -115,6 +131,9 @@
     $id("mcBack").addEventListener("click", () => mostrarPaso(1));
   }
 
+  /* ---------- Mostrar mensajes ----------
+     Qué hace: Escribe un texto de error (o de éxito) debajo del paso 1 o del paso 2.
+     Por qué: Así la persona sabe qué falló sin salirse de la ventana. */
   function mensaje(n, texto, ok){
     const m = $id("mcMsg" + n);
     if(!m) return;
@@ -122,6 +141,9 @@
     m.classList.toggle("ok", !!ok);
   }
 
+  /* ---------- Cambiar de paso ----------
+     Qué hace: Muestra el paso 1 o el paso 2, limpia los mensajes y pone el cursor en el campo correcto.
+     Por qué: Es una sola ventana con dos pantallas, y esto decide cuál se ve. */
   function mostrarPaso(n){
     paso = n;
     $id("mcStep1").style.display = n === 1 ? "" : "none";
@@ -130,6 +152,9 @@
     setTimeout(() => { const el = $id(n === 1 ? "mcMail" : "mcCode"); if(el) el.focus(); }, 50);
   }
 
+  /* ---------- Abrir la ventana ----------
+     Qué hace: Limpia los campos y muestra la ventana en el paso 1.
+     Por qué: Así no quedan datos viejos de una vez anterior. No abre si es administrador. */
   function abrir(){
     if(typeof currentUser === "undefined" || !currentUser || currentUser.role === "admin") return;
     crearVentana();
@@ -141,6 +166,9 @@
     $id("mailChangeModal").classList.add("show");
   }
 
+  /* ---------- Cerrar la ventana ----------
+     Qué hace: Oculta la ventana y borra el correo y la contraseña guardados.
+     Por qué: Por seguridad la contraseña no debe quedarse guardada en memoria. */
   function cerrar(){
     const m = $id("mailChangeModal");
     if(m) m.classList.remove("show");
@@ -148,7 +176,9 @@
     if($id("mcPass")) $id("mcPass").value = "";
   }
 
-  /* ---------- Pasos ---------- */
+  /* ---------- Paso 1: enviar el código ----------
+     Qué hace: Revisa que el correo sea válido, que haya contraseña y que no sea el mismo correo actual; luego le pide al servidor que mande el código.
+     Por qué: Se valida antes en el navegador para no gastar envíos de correo en datos mal escritos. También sirve para "Reenviar código". */
 
   async function enviar(esReenvio){
 
@@ -183,6 +213,9 @@
     if(esReenvio === true) mensaje(2, "Te enviamos un código nuevo.", true);
   }
 
+  /* ---------- Paso 2: confirmar el código ----------
+     Qué hace: Manda el código al servidor; si es correcto, actualiza el correo en pantalla, cierra la ventana y muestra un aviso.
+     Por qué: El correo solo cambia cuando se demuestra que el correo nuevo es de la persona (porque le llegó el código). */
   async function confirmar(){
 
     if(busy) return;
@@ -197,6 +230,10 @@
     if(!r.ok) return mensaje(2, r.error || "No se pudo confirmar el código.");
 
     // Se actualiza la cuenta en pantalla con lo que devolvió el servidor
+
+    /* ---------- Actualizar lo que se ve ----------
+       Qué hace: Guarda la cuenta que devolvió el servidor y cambia el correo mostrado en el perfil.
+       Por qué: Así la pantalla muestra el correo nuevo sin tener que recargar la página. */
     if(typeof guardarCuentaDevuelta === "function") guardarCuentaDevuelta(r.usuario);
 
     const pf = $id("pfEmail");

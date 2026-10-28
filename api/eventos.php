@@ -1,11 +1,30 @@
 <?php
+/* =========================================================
+   EVENTOS DEL CALENDARIO
+   Qué hace: Devuelve los eventos del calendario que la persona puede ver, agrupados por día.
+   Por qué: Cada rol ve solo lo suyo: el estudiante los de su grupo o de todos, el profesor los suyos y los de sus grupos, el administrador todos.
+   ========================================================= */
+
 // Eventos del calendario que esta cuenta puede ver, agrupados por día: {"2026-10-23":[{...}]}
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae actividades_lib.php (permisos y funciones comunes).
+   Por qué: Para no repetir código. */
 require __DIR__ . '/actividades_lib.php';
 exigir_sesion();
 
+/* ---------- Quién es la persona ----------
+   Qué hace: Saca el rol, grupo y materias.
+   Por qué: Con eso se filtra. */
 $c = contexto($conexion);
+
+/* ---------- Desde cuándo ----------
+   Qué hace: Trae solo los eventos de los últimos 400 días en adelante.
+   Por qué: No hace falta cargar eventos muy viejos. */
 $desde = date('Y-m-d', time() - 400 * 86400);
 
+/* ---------- Pedir los eventos ----------
+   Qué hace: Trae los eventos con el nombre del profesor o administrador que los publicó. */
 $filas = filas(
     $conexion,
     'SELECT e.*, p.pro_nombre AS pro_nombre, p.pro_usuario AS pro_usuario, a.adm_usuario AS adm_usuario
@@ -18,6 +37,9 @@ $filas = filas(
     [$desde]
 );
 
+/* ---------- Materias del profesor ----------
+   Qué hace: Busca las materias de un profesor y las guarda para no repetir la consulta.
+   Por qué: Para mostrar "Prof. Fulano · Matemáticas". */
 // Materias de cada profesor (para mostrar "Prof. Fulano · Matemáticas")
 $materiasDe = [];
 function materias_texto($conexion, &$cache, $profesor) {
@@ -37,6 +59,9 @@ function materias_texto($conexion, &$cache, $profesor) {
     return $cache[$profesor];
 }
 
+/* ---------- Juntar los eventos de varios grupos ----------
+   Qué hace: Los eventos con el mismo lote se juntan en uno solo con la lista de grupos.
+   Por qué: Así la página los ve como un solo evento. */
 // Un evento publicado para varios grupos es una sola fila por grupo con el mismo "lote"
 $eventos = [];
 $porLote = [];
@@ -71,6 +96,8 @@ foreach ($filas as $f) {
     }
 }
 
+/* ---------- Grupos del profesor ----------
+   Qué hace: Calcula los grupos del profesor o si puede ver todos. */
 $sinLimite = false;
 $mios = [];
 foreach ($c['asig'] as $a) {
@@ -81,6 +108,9 @@ foreach ($c['asig'] as $a) {
     }
 }
 
+/* ---------- Filtrar y agrupar por día ----------
+   Qué hace: Quita los eventos que la persona no debe ver y agrupa el resto por fecha.
+   Por qué: Es la forma que usa el calendario de la página. */
 $mapa = [];
 foreach ($eventos as $ev) {
     $grupos = $ev['groups'] ?? [];
@@ -110,4 +140,6 @@ foreach ($eventos as $ev) {
     $mapa[$fecha][] = $ev;
 }
 
+/* ---------- Responder ----------
+   Qué hace: Manda los eventos en formato JSON. */
 responder(['ok' => true, 'eventos' => $mapa ? $mapa : (object)[]]);

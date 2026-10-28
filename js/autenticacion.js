@@ -1,9 +1,17 @@
 /* =========================================================
    AUTENTICACIÓN
+   Qué hace: Maneja todo lo que tiene que ver con entrar y salir: iniciar sesión, registro con código al correo, recuperar contraseña, crear contraseña nueva, pantalla de espera del acudiente, los avisos de arriba a la derecha y cerrar sesión.
+   Por qué: Es la puerta de la agenda: confirma quién es cada persona y qué ve al entrar. Las contraseñas y los códigos se revisan en el servidor, no aquí.
    ========================================================= */
 
+/* ---------- Cuenta actual ----------
+   Qué hace: Lee del navegador la cuenta que tiene la sesión abierta (o nada si no hay).
+   Por qué: Así, al recargar la página, la persona no tiene que iniciar sesión otra vez. */
 let currentUser = JSON.parse(localStorage.getItem("ade_current_user") || "null");
 
+/* ---------- Refrescar la sesión ----------
+   Qué hace: Busca los datos más nuevos de la cuenta en la lista de usuarios y los guarda.
+   Por qué: Si el correo u otro dato cambió, se ve actualizado. */
 // Refresca la sesión guardada con los datos actuales (por ejemplo, el correo nuevo)
 if(currentUser){
   const fresh = users.find(u => u && String(u.username).toLowerCase() === String(currentUser.username).toLowerCase());
@@ -13,12 +21,13 @@ if(currentUser){
   }
 }
 
-/* =========================================================
-   AVISOS (arriba a la derecha)
-   showToast("Título", "Texto", "ok" | "info", milisegundos, foto)   (foto es opcional)
-   No hace falta tocar el HTML ni el CSS: se crea solo.
-   ========================================================= */
+/* ---------- Avisos (arriba a la derecha) ----------
+   Qué hace: showToast("Título", "Texto", "ok" o "info", milisegundos, foto) muestra un mensajito que desaparece solo. La foto es opcional.
+   Por qué: Sirve para avisar "correo cambiado", "bienvenido", etc. Se crea solo, no hace falta tocar el HTML ni el CSS. */
 
+/* ---------- Estilos de los avisos ----------
+   Qué hace: Agrega los estilos del mensajito, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureToastStyle(){
 
   if(document.getElementById("toastStyle")) return;
@@ -73,6 +82,9 @@ function ensureToastStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Mostrar un aviso ----------
+   Qué hace: Crea el mensajito con icono o foto, título, texto, botón ✕ y barrita de tiempo; se cierra solo.
+   Por qué: Es la forma común de dar noticias breves sin interrumpir con una ventana. */
 function showToast(title, text, type = "ok", ms = 4500, photo = ""){
 
   ensureToastStyle();
@@ -127,6 +139,9 @@ function showToast(title, text, type = "ok", ms = 4500, photo = ""){
 }
 
 
+/* ---------- Lista de grados ----------
+   Qué hace: Llena el desplegable de grados (6-1 a 11-9).
+   Por qué: Evita escribir 54 opciones a mano en el HTML. */
 // Llena la lista de grados (6-1 ... 11-9) para no repetir 54 <option> en el HTML.
 (function(){
   const select = $("regGrade");
@@ -136,6 +151,9 @@ function showToast(title, text, type = "ok", ms = 4500, photo = ""){
   }
 })();
 
+/* ---------- Opción "Selecciona" ----------
+   Qué hace: Hace que "Selecciona" se vea al inicio pero no se pueda volver a elegir.
+   Por qué: Para obligar a escoger una opción real. */
 // "Selecciona" es solo una pista: se ve al inicio, pero no se puede volver a elegir en la lista.
 (function(){
   ["regRole","regGrade"].forEach(id => {
@@ -146,7 +164,9 @@ function showToast(title, text, type = "ok", ms = 4500, photo = ""){
 })();
 
 
-/* ---------- Ojito para ver / ocultar contraseñas (todos los campos) ---------- */
+/* ---------- Ojito para ver la contraseña ----------
+   Qué hace: Agrega a todos los campos de contraseña un ojito para mostrarla u ocultarla.
+   Por qué: Ayuda a escribirla bien, sobre todo en el celular. */
 
 (function(){
 
@@ -212,6 +232,9 @@ function showToast(title, text, type = "ok", ms = 4500, photo = ""){
 })();
 
 
+/* ---------- Logo A.D.E. ----------
+   Qué hace: Guarda el logo con letras Arial MAYÚSCULAS dentro de este archivo, y lo pone en el encabezado, el login y la barra lateral.
+   Por qué: Así no hay que subir ninguna imagen aparte. Se repite a los 400 ms por si algún logo se dibuja tarde. */
 // Logo A.D.E. con las letras en Arial MAYÚSCULAS (el diseño es el mismo; solo cambian las letras).
 // Va dentro de este archivo, así que no hay que subir ninguna imagen. Se usa en el encabezado,
 // el login y la barra lateral. (La animación de entrada ya trae el mismo logo.)
@@ -228,8 +251,13 @@ const ADE_LOGO_ARIAL = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDA
 })();
 
 
-/* ---------- Pantalla de login / registro ---------- */
+/* ---------- Pantalla de login / registro ----------
+   Qué hace: Funciones para cambiar entre los formularios de ingreso, registro y recuperar contraseña.
+   Por qué: Los tres comparten la misma tarjeta. */
 
+/* ---------- Mostrar un formulario ----------
+   Qué hace: Muestra solo el formulario pedido (login, registro o recuperar) y limpia sus mensajes.
+   Por qué: Un solo lugar decide qué formulario se ve. */
 function showForm(mode){
 
   const forms = {
@@ -257,9 +285,15 @@ function showForm(mode){
   }
 }
 
+/* ---------- Registro de profesor ----------
+   Qué hace: Al elegir "Profesor" aparece la lista de materias (con "Añadir otra materia") y los grupos. Máximo 6 materias.
+   Por qué: Las actividades y el horario del profesor dependen de sus materias y grupos. */
 // Al elegir "Profesor" aparece la lista de materias (con "Añadir otra materia") y los grupos
 const REG_MAX_SUBJECTS = 6;
 
+/* ---------- Crear los campos de profesor ----------
+   Qué hace: Crea el botón "Añadir otra materia" y el campo de grupos.
+   Por qué: Se crean desde aquí para no tocar el HTML. */
 function ensureRegTeacherUI(){
   const field = $("regSubjectField");
   if(!field || $("regSubjectExtra")) return;
@@ -307,12 +341,18 @@ function ensureRegTeacherUI(){
   field.insertAdjacentElement("afterend", groups);
 }
 
+/* ---------- Materias escogidas ----------
+   Qué hace: Devuelve la lista de materias elegidas, sin repetidas.
+   Por qué: Se manda al servidor al registrar. */
 function regSubjectsList(){
   const vals = [$("regSubject")].concat([...document.querySelectorAll(".reg-subj-extra")])
     .map(s => s ? s.value : "").filter(Boolean);
   return vals.filter((v, i) => vals.findIndex(x => normText(x) === normText(v)) === i);
 }
 
+/* ---------- Añadir otra materia ----------
+   Qué hace: Agrega una nueva lista de materias para elegir.
+   Por qué: Hay profesores que dictan varias. */
 function addRegSubject(){
   const box = $("regSubjectExtra");
   if(!box) return;
@@ -327,11 +367,17 @@ function addRegSubject(){
   refreshRegSubjectAdd();
 }
 
+/* ---------- Botón de añadir materia ----------
+   Qué hace: Oculta el botón al llegar al máximo de materias.
+   Por qué: Para respetar el límite de 6. */
 function refreshRegSubjectAdd(){
   const box = $("regSubjectExtra"), add = $("regSubjectAdd");
   if(box && add) add.disabled = box.children.length + 1 >= REG_MAX_SUBJECTS;
 }
 
+/* ---------- Reiniciar materias ----------
+   Qué hace: Quita las materias extra y deja solo la primera.
+   Por qué: Para empezar limpio al abrir de nuevo el registro. */
 function resetRegSubjects(){
   ensureRegTeacherUI();
   const box = $("regSubjectExtra");
@@ -340,6 +386,9 @@ function resetRegSubjects(){
   refreshRegSubjectAdd();
 }
 
+/* ---------- Mostrar materias solo al profesor ----------
+   Qué hace: Muestra materias y grupos cuando el rol es Profesor y ajusta el campo de grado.
+   Por qué: Un estudiante no necesita materias; un profesor no tiene un solo grado. */
 function toggleRegSubject(){
   const field = $("regSubjectField");
   const role = $("regRole");
@@ -354,10 +403,16 @@ function toggleRegSubject(){
   if(gradeLabel) gradeLabel.textContent = role.value === "acudiente" ? "Grado de tu hijo(a)" : "Grado";
 }
 
+/* ---------- Atajos de formularios ----------
+   Qué hace: showLogin, showRegister y showForgot abren cada formulario.
+   Por qué: Son nombres cortos para usar en los botones. */
 function showLogin(){ showForm("login"); }
 function showRegister(){ showForm("register"); }
 function showForgot(){ showForm("forgot"); }
 
+/* ---------- Abrir la ventana de ingreso ----------
+   Qué hace: Muestra la pantalla de ingreso en el formulario pedido.
+   Por qué: Se usa desde los botones de la portada. */
 function openAuth(type){
   const authScreen = $("authScreen");
   if(!authScreen) return;
@@ -365,17 +420,21 @@ function openAuth(type){
   showForm(type === "register" || type === "forgot" ? type : "login");
 }
 
+/* ---------- Cerrar la ventana de ingreso ----------
+   Qué hace: Oculta la pantalla de ingreso. */
 function closeAuth(){
   const authScreen = $("authScreen");
   if(authScreen) authScreen.classList.remove("show");
 }
 
 
-/* ---------- Banner de la portada: "¡Regístrate ahora!" abre el registro ----------
-   El botón forma parte de la imagen del banner, así que se detecta el clic en esa zona
-   (abajo a la izquierda de la imagen grande). Si en el HTML la imagen tiene data-action="register",
-   se abre el registro con un clic en cualquier parte de ella. */
+/* ---------- Banner "¡Regístrate ahora!" ----------
+   Qué hace: Detecta el clic en la zona del botón dibujado en la imagen del banner (abajo a la izquierda) y abre el registro.
+   Por qué: El botón es parte de la imagen, así que se calcula la zona en vez de usar un botón real. */
 
+/* ---------- ¿Clic sobre el botón del banner? ----------
+   Qué hace: Responde si el clic cayó en esa zona.
+   Por qué: Para que el cursor y el clic funcionen solo ahí. */
 function bannerRegisterHit(e){
 
   const land = $("landingScreen");
@@ -418,8 +477,13 @@ function bannerRegisterHit(e){
 })();
 
 
-/* ---------- Iniciar sesión (formulario principal y login rápido) ---------- */
+/* ---------- Iniciar sesión ----------
+   Qué hace: Funciones que mandan el usuario y la contraseña al servidor y guardan la sesión.
+   Por qué: Las contraseñas se revisan en el servidor, nunca aquí. */
 
+/* ---------- Hablar con el servidor (apiPost) ----------
+   Qué hace: Manda datos a un archivo PHP y devuelve su respuesta {ok, error, ...}.
+   Por qué: Casi todos los archivos usan esta función; así se maneja igual cualquier error de conexión. */
 // Llama a un archivo PHP del servidor y devuelve su respuesta {ok, error, ...}
 async function apiPost(url, datos){
 
@@ -442,6 +506,9 @@ async function apiPost(url, datos){
   }
 }
 
+/* ---------- Guardar la cuenta local ----------
+   Qué hace: Guarda en la lista local la cuenta que llegó del servidor, sin la contraseña.
+   Por qué: El resto de la agenda busca los datos del usuario ahí. */
 // La cuenta que llega del servidor se guarda también en la lista local "users",
 // porque el resto de la app (todavía) busca ahí los datos del usuario. Nunca se guarda su contraseña.
 function guardarUsuarioLocal(datos){
@@ -459,11 +526,20 @@ function guardarUsuarioLocal(datos){
   return copia;
 }
 
+/* ---------- Entrando… ----------
+   Qué hace: Marca si se está iniciando sesión.
+   Por qué: Evita enviarlo dos veces. */
 let loginBusy = false;
 
 // fail(texto) decide cómo mostrar el error (alert o mensaje en pantalla)
-/* ---------- Dejar los formularios vacíos ---------- */
 
+/* ---------- Dejar los formularios vacíos ----------
+   Qué hace: Limpian los campos de ingreso y registro.
+   Por qué: Para que al cerrar sesión o terminar no queden datos escritos (ni contraseñas). */
+
+/* ---------- Limpiar el ingreso ----------
+   Qué hace: Vacía los campos del ingreso de la portada y de la ventana.
+   Por qué: Por seguridad y orden. */
 // Ingreso: el de la portada (derecha) y el de la ventana
 function clearLoginFields(){
   ["quickLoginUser","quickLoginPass","loginUser","loginPass"].forEach(id => {
@@ -474,6 +550,9 @@ function clearLoginFields(){
   if(msg) msg.textContent = "";
 }
 
+/* ---------- Limpiar el registro ----------
+   Qué hace: Vacía todos los campos, el código y las materias/grupos del profesor.
+   Por qué: Para empezar de cero. */
 // Registro: todos los campos, el código y las materias/grupos del profesor
 function clearRegisterForm(){
   ["regName","regLastName","regBirth","regUser","regEmail","regPass","regPass2","regCode","regGroups"].forEach(id => {
@@ -489,6 +568,9 @@ function clearRegisterForm(){
   resetRegCodeStep();
 }
 
+/* ---------- Sin autollenado ----------
+   Qué hace: Evita que el navegador vuelva a llenar solo estos campos.
+   Por qué: Así un computador compartido no muestra datos de otra persona. */
 // Que el navegador no vuelva a llenar solo estos campos
 (function(){
   ["quickLoginUser","loginUser","regName","regLastName","regUser","regEmail"].forEach(id => {
@@ -502,6 +584,9 @@ function clearRegisterForm(){
 })();
 
 
+/* ---------- Iniciar sesión ----------
+   Qué hace: Manda usuario y contraseña, guarda la cuenta, trae del servidor los usuarios que puede ver, entra a la aplicación y da la bienvenida.
+   Por qué: Sirve para los dos formularios; el parámetro fail decide cómo mostrar un error. */
 async function doLogin(userId, passId, fail){
 
   if(loginBusy) return;
@@ -534,20 +619,29 @@ async function doLogin(userId, passId, fail){
   showToast("¡Bienvenido, " + (user.name || user.username) + "!", "Iniciaste sesión como " + roleName.toLowerCase() + ".", "ok", 4500, user.photo || "");
 }
 
+/* ---------- Ingreso rápido ----------
+   Qué hace: Inicia sesión con el formulario de la portada.
+   Por qué: Los errores salen en una ventana. */
 function quickLogin(){
   doLogin("quickLoginUser", "quickLoginPass", text => alert(text));
 }
 
+/* ---------- Ingreso de la ventana ----------
+   Qué hace: Inicia sesión con el formulario de la ventana.
+   Por qué: Los errores salen escritos debajo del formulario. */
 function login(){
   const message = $("loginMessage");
   doLogin("loginUser", "loginPass", text => { if(message) message.textContent = text; });
 }
 
 
-/* ---------- Tarjeta única: ingreso, registro y recuperar contraseña ----------
-   Las tres pantallas comparten la misma tarjeta compacta (letras y campos del tamaño de la portada).
-   Detrás se ve el mismo fondo animado (neblina y brasas) de la portada.
-   Si el formulario es más largo (ej. profesor con varias materias) se desplaza dentro de la tarjeta. */
+/* ---------- Tarjeta única ----------
+   Qué hace: Las tres pantallas (ingreso, registro y recuperar) comparten la misma tarjeta compacta, con el fondo animado de la portada. Si el formulario es largo, se desplaza dentro de la tarjeta.
+   Por qué: Se ve ordenado y se mantiene el mismo diseño. */
+
+/* ---------- Estilos de la tarjeta ----------
+   Qué hace: Agrega los estilos de la tarjeta y marca el <body> mientras la pantalla de ingreso está abierta.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureAuthStyle(){
   if(document.getElementById("authSameSizeStyle")) return;
   const st = document.createElement("style");
@@ -643,14 +737,23 @@ function ensureAuthStyle(){
   }
 }
 
+/* ---------- Aplicar los estilos al cargar ----------
+   Qué hace: Llama a la función de arriba. */
 ensureAuthStyle();
 
 
-/* ---------- Registro ---------- */
+/* ---------- Registro ----------
+   Qué hace: Funciones para crear una cuenta nueva. */
 
+/* ---------- Variables del registro ----------
+   Qué hace: Guardan si se está enviando y los datos del registro mientras se espera el código.
+   Por qué: Los datos esperan hasta que el código sea correcto. */
 let registerBusy = false;
 let regPayload = null;
 
+/* ---------- Registrar usuario ----------
+   Qué hace: Limpia y revisa todos los datos, pide al servidor que mande un código al correo y muestra el paso del código.
+   Por qué: La cuenta no se crea hasta confirmar el código. Nadie se hace administrador solo: esas cuentas las crea el administrador. */
 async function registerUser(){
 
   const message = $("registerMessage");
@@ -705,9 +808,11 @@ async function registerUser(){
 
 
 /* ---------- Código de verificación del registro ----------
-   Paso 1: se llenan los datos y el servidor manda un código de 6 dígitos al correo.
-   Paso 2: se escribe el código; solo entonces se crea la cuenta. */
+   Qué hace: Paso 1: se llenan los datos y el servidor manda un código de 6 dígitos al correo. Paso 2: se escribe el código; solo entonces se crea la cuenta.
+   Por qué: Así se confirma que el correo es real. */
 
+/* ---------- Mostrar el paso del código ----------
+   Qué hace: Cambia del formulario de datos al campo del código. */
 function showRegCodeStep(email){
   const s1 = $("regStep1"), s2 = $("regStep2");
   if(s1) s1.style.display = "none";
@@ -719,6 +824,8 @@ function showRegCodeStep(email){
   if(message){ message.style.color = ""; message.textContent = ""; }
 }
 
+/* ---------- Volver al paso 1 ----------
+   Qué hace: Reinicia el paso del código. */
 function resetRegCodeStep(){
   regPayload = null;
   const s1 = $("regStep1"), s2 = $("regStep2");
@@ -727,6 +834,9 @@ function resetRegCodeStep(){
   if($("regCode")) $("regCode").value = "";
 }
 
+/* ---------- Corregir los datos ----------
+   Qué hace: Vuelve del código a los datos para corregirlos.
+   Por qué: Por si el correo estaba mal escrito. */
 function backRegister(){
   const s1 = $("regStep1"), s2 = $("regStep2");
   if(s1) s1.style.display = "";
@@ -735,6 +845,9 @@ function backRegister(){
   if(message){ message.style.color = ""; message.textContent = ""; }
 }
 
+/* ---------- Reenviar el código ----------
+   Qué hace: Pide un código nuevo.
+   Por qué: Por si el primero no llegó. */
 async function resendRegisterCode(){
   const message = $("registerMessage");
   const say = (text, ok) => { if(message){ message.style.color = ok ? "#9ff0c4" : ""; message.textContent = text; } };
@@ -747,6 +860,9 @@ async function resendRegisterCode(){
   say("Te enviamos un código nuevo.", true);
 }
 
+/* ---------- Confirmar el registro ----------
+   Qué hace: Revisa el código; si es correcto, la cuenta queda creada, se limpia el formulario y se lleva a iniciar sesión.
+   Por qué: Solo quien recibió el código crea la cuenta. */
 async function confirmRegister(){
 
   const message = $("registerMessage");
@@ -779,13 +895,16 @@ async function confirmRegister(){
 
 
 /* ---------- Olvidé mi contraseña ----------
-   Paso 1: se escribe el correo y el servidor manda un código de 6 dígitos.
-   Paso 2: se escribe el código; si es correcto, la persona entra a su cuenta
-           y le aparece la ventana para crear una contraseña nueva. */
+   Qué hace: Paso 1: se escribe el correo y el servidor manda un código de 6 dígitos. Paso 2: se escribe el código; si es correcto la persona entra y debe crear una contraseña nueva.
+   Por qué: Permite recuperar la cuenta sin ayuda del administrador. */
 
+/* ---------- Variables de recuperar ----------
+   Qué hace: Guardan si se está enviando y el correo escrito. */
 let forgotBusy = false;
 let forgotMail = "";
 
+/* ---------- Reiniciar recuperar ----------
+   Qué hace: Deja el formulario como al inicio. */
 function resetForgotForm(){
   forgotBusy = false;
   forgotMail = "";
@@ -799,6 +918,9 @@ function resetForgotForm(){
   if(message){ message.textContent = ""; message.style.color = ""; }
 }
 
+/* ---------- Volver al correo ----------
+   Qué hace: Vuelve del código al paso del correo.
+   Por qué: Por si el correo estaba mal. */
 function backForgot(){
   const step1 = $("forgotStep1"), step2 = $("forgotStep2");
   if(step1) step1.style.display = "block";
@@ -807,6 +929,8 @@ function backForgot(){
   if(message){ message.textContent = ""; message.style.color = ""; }
 }
 
+/* ---------- Pedir el código ----------
+   Qué hace: Pide al servidor que mande el código al correo y pasa al segundo paso (o muestra un código nuevo si es reenvío). */
 async function requestForgotCode(email, resend){
 
   const message = $("forgotMessage");
@@ -832,14 +956,22 @@ async function requestForgotCode(email, resend){
   say(resend ? "Te enviamos un código nuevo." : "", resend);
 }
 
+/* ---------- Enviar el código ----------
+   Qué hace: Pide el código con el correo escrito. */
 function sendForgotCode(){
   requestForgotCode($("forgotEmail").value.trim(), false);
 }
 
+/* ---------- Reenviar el código ----------
+   Qué hace: Pide otro código.
+   Por qué: Por si no llegó. */
 function resendForgotCode(){
   requestForgotCode(forgotMail || $("forgotEmail").value.trim(), true);
 }
 
+/* ---------- Confirmar el código ----------
+   Qué hace: Revisa el código y, si es correcto, inicia sesión y muestra la ventana para crear la contraseña nueva.
+   Por qué: El código funciona como una llave de un solo uso. */
 async function confirmForgotCode(){
 
   const message = $("forgotMessage");
@@ -867,10 +999,12 @@ async function confirmForgotCode(){
 }
 
 
-/* ---------- Ventana "Crea tu contraseña nueva" (después de entrar con el código) ----------
-   Se dibuja sola, con los colores de la página. No tiene botón para cerrarla:
-   hay que elegir la contraseña nueva (o cerrar sesión). */
+/* ---------- Ventana "Crea tu contraseña nueva" ----------
+   Qué hace: Se dibuja sola, con los colores de la página. No se puede cerrar: hay que crear la contraseña nueva (o cerrar sesión).
+   Por qué: Después de entrar con un código, la persona no sabe su contraseña; así queda con una que conoce. */
 
+/* ---------- Estilos de esta ventana ----------
+   Qué hace: Agrega los estilos, una sola vez. */
 function ensureForcedPassStyle(){
   if(document.getElementById("forcedPassStyle")) return;
   const st = document.createElement("style");
@@ -931,6 +1065,8 @@ function ensureForcedPassStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Mostrar el cambio obligatorio ----------
+   Qué hace: Dibuja la ventana con dos campos, ojitos y botón; revisa que coincidan y guarda la contraseña nueva. */
 function showForcedPasswordChange(){
 
   if(document.getElementById("forcedPass")) return;
@@ -1000,8 +1136,12 @@ function showForcedPasswordChange(){
 }
 
 
-/* ---------- Estilo de las cajas de código (registro y recuperar) ---------- */
+/* ---------- Cajas de código ----------
+   Qué hace: Estilo de las cajas del código. Solo aceptan números y Enter confirma.
+   Por qué: Evita errores al escribir el código. */
 
+/* ---------- Estilos y teclas del código ----------
+   Qué hace: Agrega los estilos y conecta las teclas. */
 function ensureCodeStyle(){
   if(document.getElementById("codeInputStyle")) return;
   const st = document.createElement("style");
@@ -1032,13 +1172,22 @@ function ensureCodeStyle(){
   if(fe) fe.addEventListener("keydown", e => { if(e.key === "Enter") sendForgotCode(); });
 }
 
+/* ---------- Aplicar al cargar ----------
+   Qué hace: Llama a la función de arriba. */
 ensureCodeStyle();
 
 
-/* ---------- Animación de entrada de la aplicación ---------- */
+/* ---------- Animación de entrada ----------
+   Qué hace: Pequeña animación al entrar a la aplicación.
+   Por qué: Da un efecto agradable sin repetirse al actualizar las tarjetas. */
 
+/* ---------- Temporizador ----------
+   Qué hace: Guarda el temporizador que quita la animación. */
 let enterAnimTimer = null;
 
+/* ---------- Reproducir la animación ----------
+   Qué hace: Reinicia la animación y la quita a los 2,4 segundos.
+   Por qué: Si no se quitara, se repetiría con cada actualización. */
 function playEnterAnimation(app){
   app.classList.remove("entrando");
   void app.offsetWidth;                 // reinicia la animación
@@ -1049,8 +1198,13 @@ function playEnterAnimation(app){
 }
 
 
-/* ---------- Entrar a la aplicación ---------- */
+/* ---------- Entrar a la aplicación ----------
+   Qué hace: Muestra la aplicación, pone el nombre, la foto y el cargo, aplica permisos, dibuja todo y pide las notificaciones y actividades.
+   Por qué: Es el paso final después de iniciar sesión o recargar con sesión abierta. */
 
+/* ---------- Entrar ----------
+   Qué hace: Si es acudiente sin validar, muestra solo la pantalla de espera; si no, entra a la agenda con los datos de la cuenta.
+   Por qué: Un acudiente sin validar no debe usar nada. */
 function enterApp(){
 
   if(!currentUser){
@@ -1129,13 +1283,17 @@ function enterApp(){
 }
 
 
-/* ---------- Acudiente: pantalla "Esperando validación" ----------
-   Una cuenta de acudiente no puede usar nada hasta que un estudiante escriba su correo en
-   "Correo del acudiente" (Mi perfil) y lo verifique con el código de 6 dígitos. */
+/* ---------- Acudiente: Esperando validación ----------
+   Qué hace: Una cuenta de acudiente no puede usar nada hasta que un estudiante escriba su correo en "Correo del acudiente" (Mi perfil) y lo verifique con el código de 6 dígitos.
+   Por qué: Así solo ven la agenda los acudientes que un estudiante autorizó. */
 
+/* ---------- Variables de la espera ----------
+   Qué hace: Guardan el temporizador de revisión y si ya se está revisando. */
 let guardianTimer = null;
 let guardianChecking = false;
 
+/* ---------- Estilos de la espera ----------
+   Qué hace: Agrega los estilos de esta pantalla, una sola vez. */
 function ensureGuardianPendingStyle(){
   if($("guardianPendingStyle")) return;
   const st = document.createElement("style");
@@ -1158,11 +1316,16 @@ function ensureGuardianPendingStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Nota de la espera ----------
+   Qué hace: Escribe un texto pequeño en la pantalla de espera. */
 function setGuardianNote(text){
   const n = $("gpNote");
   if(n) n.textContent = text;
 }
 
+/* ---------- Mostrar la espera ----------
+   Qué hace: Muestra la pantalla de espera y revisa con el servidor cada 15 segundos.
+   Por qué: Cuando el estudiante lo valide, el acudiente entra solo. */
 function showGuardianPending(){
 
   ensureGuardianPendingStyle();
@@ -1208,6 +1371,9 @@ function showGuardianPending(){
   guardianTimer = setInterval(() => refreshGuardianState(false), 15000);
 }
 
+/* ---------- Ocultar la espera ----------
+   Qué hace: Quita la pantalla y detiene la revisión.
+   Por qué: Para no seguir preguntando sin necesidad. */
 function hideGuardianPending(){
   clearInterval(guardianTimer);
   guardianTimer = null;
@@ -1215,6 +1381,8 @@ function hideGuardianPending(){
   if(box) box.remove();
 }
 
+/* ---------- Revisar la validación ----------
+   Qué hace: Pregunta al servidor si ya quedó validado; si sí, entra a la agenda. */
 // Le pregunta al servidor si ya quedó validada; si sí, entra a la agenda
 async function refreshGuardianState(manual){
 
@@ -1247,8 +1415,12 @@ async function refreshGuardianState(manual){
 }
 
 
-/* ---------- Cerrar sesión ---------- */
+/* ---------- Cerrar sesión ----------
+   Qué hace: Funciones para salir de la cuenta. */
 
+/* ---------- Salir ----------
+   Qué hace: Avisa al servidor, borra la sesión y la lista de otras cuentas del computador, y vuelve a Inicio y a la portada.
+   Por qué: Por seguridad no se deja en este computador la lista de otras cuentas; al volver a Inicio, el siguiente usuario no ve una página vacía. */
 function logout(){
 
   fetch("api/salir.php", {method:"POST", credentials:"same-origin"}).catch(() => {});
@@ -1287,8 +1459,9 @@ function logout(){
 }
 
 
-/* ---------- Al abrir la página: ¿el servidor todavía tiene la sesión abierta? ----------
-   Si no la tiene (se cerró o venció), se vuelve a la portada. Si no hay internet, se deja como está. */
+/* ---------- ¿Sigue abierta la sesión? ----------
+   Qué hace: Al abrir la página, pregunta al servidor si la sesión sigue abierta. Si no (se cerró o venció), vuelve a la portada; si no hay internet, se deja como está.
+   Por qué: La sesión del servidor es la que manda; la del navegador puede quedar vieja. */
 
 (async function verificarSesion(){
   try{

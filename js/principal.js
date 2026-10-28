@@ -1,11 +1,16 @@
 /* =========================================================
-   PRINCIPAL: guardado, navegación, tarjetas y arranque
+   PRINCIPAL: GUARDADO, NAVEGACIÓN, TARJETAS Y ARRANQUE
+   Qué hace: Es el archivo central de la pantalla: botones de icono, menú lateral, campanita de notificaciones, Inicio con sus números, cambio de páginas, tarjeta de actividad, estilos generales (tema verde, letra, fondo) y el arranque de la aplicación.
+   Por qué: Reúne lo que usan todas las demás páginas y decide qué se dibuja y cuándo. Casi todo se arma desde aquí, sin tocar el HTML.
    ========================================================= */
- 
-/* ---------- Botones de icono (verdes, como los iconos del menú) ----------
-   Se usan para Editar / Borrar / Agregar en Materias, Horario, Calendario y Administración.
-   ibtn("edit", "Editar", "editSubject(3)")  →  devuelve el HTML del botón. */
 
+/* ---------- Botones de icono ----------
+   Qué hace: Botones verdes pequeños para Editar, Borrar, Agregar, Candado y Check, como los iconos del menú. Ejemplo: ibtn("edit", "Editar", "editSubject(3)") devuelve el HTML del botón.
+   Por qué: Se repiten en Materias, Horario, Calendario y Administración; así se ven iguales y se escriben en una línea. */
+
+/* ---------- Dibujos de los botones ----------
+   Qué hace: Guarda los dibujos (SVG) de cada tipo de botón.
+   Por qué: Así no hace falta cargar imágenes aparte. */
 const IBTN_ICONS = {
   edit:  '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>',
@@ -14,6 +19,9 @@ const IBTN_ICONS = {
   check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>'
 };
 
+/* ---------- Estilos de los botones ----------
+   Qué hace: Agrega a la página los estilos de los botones de icono, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureIconBtnStyle(){
   if(document.getElementById("iconBtnStyle")) return;
   const st = document.createElement("style");
@@ -38,6 +46,9 @@ function ensureIconBtnStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Crear un botón de icono ----------
+   Qué hace: Devuelve el botón listo (tipo, texto de ayuda y qué hacer al hacer clic).
+   Por qué: Atajo para no repetir el mismo código en cada tabla. */
 function ibtn(kind, title, onclick, size){
   ensureIconBtnStyle();
   const t = String(title || "").replace(/"/g, "&quot;");
@@ -48,12 +59,18 @@ function ibtn(kind, title, onclick, size){
 /* ---------- Cambio de páginas ---------- */
  
 /* ---------- Iconos del menú y título de cada apartado ----------
-   Los emojis se cambian por iconos (SVG) y, al abrir un apartado, arriba a la
-   izquierda aparece su icono y su nombre. No hace falta tocar el HTML. */
+   Qué hace: Cambia los emojis del menú por iconos (SVG) y, al abrir un apartado, muestra arriba a la izquierda su icono y su nombre.
+   Por qué: Se ve más ordenado y se hace sin tocar el HTML. */
 
+/* ---------- Dos estilos de icono ----------
+   Qué hace: Uno de línea (ICON_OPEN) y otro relleno (ICON_SOLID).
+   Por qué: Se combinan para que el menú tenga variedad y se vea claro. */
 const ICON_OPEN  = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
 const ICON_SOLID = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">';
 
+/* ---------- Iconos del menú ----------
+   Qué hace: Un dibujo para cada apartado (inicio, actividades, materias, horario, calendario, perfil, estudiantes, administración y salir).
+   Por qué: Cada botón del menú se reconoce de un vistazo. */
 const NAV_ICONS = {
   inicio: ICON_SOLID + '<path d="M12 2.9 2.7 11.2a1 1 0 0 0 .7 1.7H5v7.1c0 .6.4 1 1 1h3.6v-5.3c0-.5.4-.9.9-.9h3c.5 0 .9.4.9.9V21H18c.6 0 1-.4 1-1v-7.1h1.6a1 1 0 0 0 .7-1.7L12 2.9z"/></svg>',
   actividades: ICON_OPEN + '<rect x="4.5" y="4.5" width="15" height="17" rx="2.4"/><path d="M9 4.5V3.6c0-.3.3-.6.6-.6h4.8c.3 0 .6.3.6.6v.9"/><path d="M8.5 11.2h2M8.5 15.8h2M12.5 11.2h3M12.5 15.8h3"/></svg>',
@@ -66,9 +83,15 @@ const NAV_ICONS = {
   logout: ICON_OPEN + '<path d="M9.500 4H6.500A1.500 1.500 0 0 0 5 5.500v13A1.500 1.500 0 0 0 6.500 20h3"/><path d="m15 8 4 4-4 4M19 12H9.500"/></svg>'
 };
 
+/* ---------- Iconos rellenos ----------
+   Qué hace: Lista de iconos que van rellenos (en azul); los de línea van en azul claro.
+   Por qué: Para decidir el color de cada uno. */
 // Los que se ven "rellenos" van en azul; los de línea, en azul claro
 const NAV_FILLED = ["inicio", "materias", "perfil", "admin"];
 
+/* ---------- Estilos del menú ----------
+   Qué hace: Agrega los estilos de los iconos del menú, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureNavStyle(){
 
   if(document.getElementById("navIconStyle")) return;
@@ -105,6 +128,9 @@ function ensureNavStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Título "GESTIÓN" ----------
+   Qué hace: Crea un título "GESTIÓN" sobre el botón de Administración, copiando el aspecto de "CUENTA".
+   Por qué: Administración tiene su propia sección y solo la ve el administrador. */
 // "Administración" ya no cuelga de "CUENTA": tiene su propio título "GESTIÓN" (solo lo ve el administrador)
 function setupAdminNavLabel(){
 
@@ -126,6 +152,9 @@ function setupAdminNavLabel(){
   adminBtn.insertAdjacentElement("beforebegin", label);
 }
 
+/* ---------- Mostrar u ocultar "GESTIÓN" ----------
+   Qué hace: Muestra el título solo si el botón de Administración se ve.
+   Por qué: Para que no quede un título suelto sin botón. */
 // Lo llama applyPermissions(): el título solo se ve si el botón de Administración se ve
 function syncAdminNavLabel(isAdmin){
   const label = document.querySelector("[data-admin-label]");
@@ -134,6 +163,9 @@ function syncAdminNavLabel(isAdmin){
   else label.style.setProperty("display", "none", "important");
 }
 
+/* ---------- Poner los iconos en el menú ----------
+   Qué hace: Reemplaza los emojis por iconos, separa los grupos con una línea y prepara el botón de cerrar sesión.
+   Por qué: Es la función que deja el menú con su diseño final. */
 // Cambia los emojis del menú por iconos y separa los grupos con una línea
 function setupNavIcons(){
 
@@ -187,6 +219,9 @@ function setupNavIcons(){
   }
 }
 
+/* ---------- Título de la página ----------
+   Qué hace: Pone arriba a la izquierda el icono y el nombre del apartado que se está viendo.
+   Por qué: Para que la persona sepa en qué página está. */
 // Título de arriba a la izquierda: icono + nombre del apartado
 function setPageTitle(id){
   const el = $("pageTitle");
@@ -195,13 +230,13 @@ function setPageTitle(id){
 }
 
 
-/* =========================================================
-   NOTIFICACIONES (la campanita de arriba a la derecha)
-   Se avisa cuando alguien publica una actividad o un evento del calendario,
-   cuando cambia el horario o cuando se publica un aviso.
-   Cada cuenta solo ve los avisos de su grupo (o los que son para todos).
-   ========================================================= */
+/* ---------- Notificaciones (la campanita) ----------
+   Qué hace: Avisa cuando alguien publica una actividad o un evento del calendario, cuando cambia el horario o cuando se publica un aviso. Cada cuenta solo ve los de su grupo (o los que son para todos).
+   Por qué: Así nadie se pierde información importante. */
 
+/* ---------- Tipos de notificación ----------
+   Qué hace: Define el nombre y el icono de cada tipo: Actividad, Calendario, Horario y Aviso.
+   Por qué: Cada tipo se reconoce por su icono. */
 const NOTIF_TYPES = {
   actividad:  {label:"Actividad",  icon:'<path d="M9 4.5V3.6c0-.3.3-.6.6-.6h4.8c.3 0 .6.3.6.6v.9"/><rect x="4.5" y="4.5" width="15" height="17" rx="2.4"/><path d="M8.5 11.2h2M8.5 15.8h2M12.5 11.2h3M12.5 15.8h3"/>'},
   calendario: {label:"Calendario", icon:'<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'},
@@ -209,11 +244,17 @@ const NOTIF_TYPES = {
   aviso:      {label:"Aviso",      icon:'<path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M18.500 6.500a8 8 0 0 1 0 11"/>'}
 };
 
+/* ---------- Lista de notificaciones ----------
+   Qué hace: Guarda la lista que mandó el servidor y una "firma" para saber si cambió.
+   Por qué: El servidor ya manda solo las que le tocan a esta cuenta; la firma evita redibujar si nada cambió. */
 // Las notificaciones viven en la base de datos (api/notificaciones.php).
 // El servidor ya manda solo las que le corresponden a esta cuenta y cuáles ya leyó.
 let notifList = [];
 let notifSig = "";
 
+/* ---------- Traer notificaciones ----------
+   Qué hace: Pide al servidor las notificaciones y actualiza la campanita.
+   Por qué: Así se ven los avisos nuevos. */
 async function cargarNotificaciones(){
   try{
     const resp = await fetch("api/notificaciones.php", {credentials:"same-origin", cache:"no-store"});
@@ -230,8 +271,14 @@ async function cargarNotificaciones(){
   }
 }
 
+/* ---------- Copia de la lista ----------
+   Qué hace: Devuelve una copia de la lista de notificaciones.
+   Por qué: Para poder usarla sin dañar la original. */
 function loadNotifs(){ return notifList.slice(); }
 
+/* ---------- Publicar una notificación ----------
+   Qué hace: La manda al servidor para uno, varios o todos los grupos.
+   Por qué: Quien la publica no la recibe; a los demás les llega al abrir la página o cada minuto. */
 // Publica una notificación en el servidor. groups = lista de grupos, o null para todos.
 // Quien la publica no la recibe; les llega a los demás cuando abren la página o cada minuto.
 async function notify(n){
@@ -247,10 +294,19 @@ async function notify(n){
   return !!r.ok;
 }
 
+/* ---------- Mis notificaciones ----------
+   Qué hace: Devuelve las notificaciones de esta cuenta.
+   Por qué: No filtra nada más porque el servidor ya lo hizo. */
 function myNotifs(){ return notifList.slice(); }       // el servidor ya filtró
 
+/* ---------- Cuántas sin leer ----------
+   Qué hace: Cuenta las notificaciones sin leer.
+   Por qué: Es el numerito rojo de la campanita. */
 function unreadCount(){ return notifList.filter(n => !n.read).length; }
 
+/* ---------- Marcar una como leída ----------
+   Qué hace: La marca como leída en pantalla y se lo avisa al servidor.
+   Por qué: Para que no vuelva a aparecer como nueva. */
 function markNotifRead(id){
   const n = notifList.find(x => x.id === id);
   if(!n || n.read) return;
@@ -259,6 +315,9 @@ function markNotifRead(id){
   apiPost("api/notificacion_leer.php", {ids:[id]});
 }
 
+/* ---------- Marcar todas como leídas ----------
+   Qué hace: Marca todas como leídas y redibuja la campanita.
+   Por qué: Atajo cuando la persona ya leyó todo. */
 function markAllNotifsRead(){
   notifList.forEach(n => { n.read = true; });
   notifSig = JSON.stringify(notifList);
@@ -266,6 +325,9 @@ function markAllNotifsRead(){
   renderNotifications();
 }
 
+/* ---------- Hace cuánto ----------
+   Qué hace: Convierte una fecha en texto como "ahora", "hace 5 min", "hace 2 horas", "ayer" o, si es de hace una semana o más, "3 ago".
+   Por qué: Es más fácil de entender que una fecha completa. */
 function timeAgo(iso){
   const t = new Date(iso).getTime();
   if(!t) return "";
@@ -280,6 +342,9 @@ function timeAgo(iso){
   return new Date(t).toLocaleDateString("es-CO", {day:"numeric", month:"short"});
 }
 
+/* ---------- Estilos de la campanita ----------
+   Qué hace: Agrega los estilos de la campanita y su panel, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureNotifStyle(){
 
   if(document.getElementById("notifStyle")) return;
@@ -341,6 +406,9 @@ function ensureNotifStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Crear la campanita ----------
+   Qué hace: Pone la campanita arriba, conecta el abrir y cerrar del panel y vuelve a pedir avisos cada minuto y al volver a la pestaña.
+   Por qué: Si otra persona publica algo, se actualiza sola. */
 function setupNotifBell(){
 
   const top = document.querySelector(".topbar");
@@ -384,6 +452,9 @@ function setupNotifBell(){
   document.addEventListener("visibilitychange", function(){ if(!document.hidden && currentUser) cargarNotificaciones(); });
 }
 
+/* ---------- Dibujar las notificaciones ----------
+   Qué hace: Llena el panel con la lista, pone el número rojo y muestra el botón de nuevo aviso solo a quien puede publicar.
+   Por qué: Se ejecuta cada vez que algo cambia. */
 function renderNotifications(){
 
   const panel = $("notifPanel");
@@ -420,6 +491,9 @@ function renderNotifications(){
     (canPost ? '<div class="notif-foot"><button type="button" class="btn secondary" onclick="publishNotice()">＋ Publicar un aviso</button></div>' : '');
 }
 
+/* ---------- Abrir una notificación ----------
+   Qué hace: La marca como leída, cierra el panel y abre la página a la que se refiere el aviso (si la persona tiene permiso para verla).
+   Por qué: Para ir directo a lo que se avisó. */
 function openNotif(id){
   const n = loadNotifs().find(x => x.id === id);
   markNotifRead(id);
@@ -432,6 +506,9 @@ function openNotif(id){
   }
 }
 
+/* ---------- Publicar un aviso ----------
+   Qué hace: Abre un formulario para escribir título, texto y para quién es. El profesor solo avisa a sus grupos.
+   Por qué: El administrador puede avisar a todo el colegio, un grado o algunos grupos. */
 // Aviso / noticia: administrador (todo el colegio, un grado completo o algunos grupos) y profesores (para sus grupos)
 async function publishNotice(){
 
@@ -453,6 +530,9 @@ async function publishNotice(){
   if(typeof showToast === "function") showToast("Aviso publicado", "Ya les aparece en la campanita.", "ok", 3000);
 }
 
+/* ---------- Avisar lo pendiente ----------
+   Qué hace: Si hay avisos sin leer al entrar, muestra un mensajito.
+   Por qué: Para que la persona se entere apenas inicia sesión. */
 // Al entrar: si hay avisos sin leer, se avisa con un mensajito
 function announceUnread(){
   const n = unreadCount();
@@ -463,12 +543,13 @@ function announceUnread(){
 }
 
 
-/* =========================================================
-   INICIO: encabezado de bienvenida y cuatro cuadros con números
-   (Actividades pendientes · Completadas · Materias · Clases de hoy)
-   Solo cambia el dibujo de esta página: el fondo animado no se toca.
-   ========================================================= */
+/* ---------- Inicio: bienvenida y cuatro cuadros ----------
+   Qué hace: Dibuja el encabezado de bienvenida y cuatro cuadros con números (Actividades pendientes, Completadas, Materias y Clases de hoy). Solo cambia el dibujo de esta página: el fondo animado no se toca.
+   Por qué: Da un resumen rápido apenas se entra. */
 
+/* ---------- Estilos de los cuadros ----------
+   Qué hace: Agrega los estilos de los cuatro cuadros, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureHomeStatsStyle(){
 
   if(document.getElementById("homeStatsStyle")) return;
@@ -515,6 +596,9 @@ function ensureHomeStatsStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Iconos de los cuadros ----------
+   Qué hace: Guarda el dibujo de cada cuadro.
+   Por qué: Cada número se acompaña de un icono. */
 const HOME_ICONS = {
   pend:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4.500" width="14" height="17" rx="2.400"/><path d="M9 4.500V3.600c0-.3.3-.6.6-.6h4.800c.3 0 .6.3.6.6v.9"/><path d="M8.600 12.200h2M8.600 16.600h2M12.600 12.200h2.800M12.600 16.600h2.800"/></svg>',
   done:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m4.500 12.800 4.700 4.700L19.500 7"/></svg>',
@@ -524,6 +608,9 @@ const HOME_ICONS = {
   go:    '<svg class="hs-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>'
 };
 
+/* ---------- Clases de hoy ----------
+   Qué hace: Cuenta las clases del día: estudiante, las de su grupo; profesor, las suyas; admin, las de todo el colegio.
+   Por qué: Cada rol tiene un horario distinto. */
 // Cuántas clases hay hoy (estudiante: su grupo · profesor: las suyas · admin: todo el colegio)
 function classesToday(dayIndex){
 
@@ -553,6 +640,9 @@ function classesToday(dayIndex){
   return d.classes.length;
 }
 
+/* ---------- Números de Inicio ----------
+   Qué hace: Calcula cuántas actividades pendientes y completadas hay, cuántas materias y cuántas clases hoy.
+   Por qué: Son los datos que muestran los cuatro cuadros. */
 function homeStats(){
 
   const role = getRole();
@@ -575,6 +665,9 @@ function homeStats(){
   };
 }
 
+/* ---------- Cargo y grupo ----------
+   Qué hace: Devuelve el cargo y el grupo (ej. "Estudiante · 7-1") de una cuenta.
+   Por qué: Debajo del nombre se muestra el cargo, no el usuario. */
 // Texto que va debajo del nombre (arriba a la derecha): el cargo y el grupo, no el usuario
 function userRoleLabel(u){
   if(!u) return "";
@@ -590,11 +683,17 @@ function userRoleLabel(u){
   return role + (g ? " · " + g : "");
 }
 
+/* ---------- Ir a una página ----------
+   Qué hace: Abre la página elegida desde Inicio y marca su botón del menú.
+   Por qué: Es lo que pasa al hacer clic en un cuadro. */
 function goHome(page){
   const btn = document.querySelector('.nav button[onclick*="\'' + page + '\'"]');
   showPage(page, btn);
 }
 
+/* ---------- Dibujar los cuadros de Inicio ----------
+   Qué hace: Arma los cuatro cuadros y el saludo. El administrador ve cuántas cuentas hay; el acudiente no ve entregas.
+   Por qué: Cada rol ve lo que le sirve. */
 function renderHomeStats(){
 
   const box = document.querySelector("#inicio .stats");
@@ -660,6 +759,9 @@ function renderHomeStats(){
 }
 
 
+/* ---------- Nombres de las páginas ----------
+   Qué hace: Relaciona cada página con el nombre que se muestra.
+   Por qué: Se usa en el título de arriba. */
 const PAGE_NAMES = {
   inicio:"Inicio",
   actividades:"Actividades",
@@ -671,6 +773,9 @@ const PAGE_NAMES = {
   admin:"Administración"
 };
  
+/* ---------- Cambiar de página ----------
+   Qué hace: Revisa que se tenga permiso, muestra la página elegida, marca el botón del menú, cambia el título y la dibuja.
+   Por qué: Si es Administración o Mis estudiantes, también se vuelve a pedir la lista al servidor para ver la hora de último acceso al día. */
 function showPage(id, btn){
  
   if(!hasPermission("view", id)) return denyPermission();
@@ -691,7 +796,9 @@ function showPage(id, btn){
 }
  
  
-/* ---------- Fechas ---------- */
+/* ---------- Fechas ----------
+   Qué hace: Función para escribir fechas en español.
+   Por qué: Para que se lean bien. */
  
 function formatDate(d){
   if(!d) return "Sin fecha";
@@ -701,7 +808,9 @@ function formatDate(d){
 }
  
  
-/* ---------- Tarjeta de actividad ---------- */
+/* ---------- Tarjeta de actividad ----------
+   Qué hace: Arma la tarjeta de cada actividad con su estado, fecha, entregas ("5 de 28") y el botón de entregar o ver.
+   Por qué: El estudiante ve su entrega; el profesor y el admin ven cuántos han entregado. */
  
 function card(a){
 
@@ -756,9 +865,8 @@ function card(a){
  
  
 /* ---------- Encabezado de cada apartado ----------
-   Igual que en Calendario: icono grande + título + subtítulo (y el botón de la página a la derecha).
-   Se crea solo, no hace falta tocar el HTML. Para cambiar un texto, edita PAGE_HEADERS.
-   (Inicio conserva su saludo: lo escribe renderHomeStats.) */
+   Qué hace: Crea para cada página un icono grande, título y subtítulo (como en Calendario). Inicio conserva su saludo. Para cambiar un texto se edita PAGE_HEADERS.
+   Por qué: Todas las páginas se ven con el mismo diseño, sin tocar el HTML. */
 
 const PAGE_HEADERS = {
   inicio:      {icon:"inicio",      title:"",                  sub:""},
@@ -770,6 +878,9 @@ const PAGE_HEADERS = {
   admin:       {icon:"admin",       title:"Administración",    sub:"Gestiona las cuentas de los usuarios de la plataforma."}
 };
 
+/* ---------- Estilos de los encabezados ----------
+   Qué hace: Agrega los estilos de los encabezados, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensurePageHeaderStyle(){
 
   if(document.getElementById("pageHeaderStyle")) return;
@@ -814,6 +925,9 @@ function ensurePageHeaderStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Crear los encabezados ----------
+   Qué hace: Arma el encabezado de cada página.
+   Por qué: Se hace solo la primera vez. */
 function setupPageHeaders(){
 
   ensurePageHeaderStyle();
@@ -883,11 +997,12 @@ function setupPageHeaders(){
  
  
 /* ---------- Tema verde ----------
-   Botones, menú activo, pestañas, encabezados y bordes pasan de azul a verde
-   (el mismo verde del botón "Iniciar sesión"). El fondo oscuro se queda igual.
-   Para cambiar el verde, edita los colores de este bloque
-   (#2fb86d claro · #25a05d principal · #1d8a52 oscuro · #6fe3a1 detalles). */
+   Qué hace: Cambia botones, menú activo, pestañas, encabezados y bordes de azul a verde (el mismo del botón "Iniciar sesión"). El fondo oscuro se queda igual. Colores: #2fb86d claro, #25a05d principal, #1d8a52 oscuro, #6fe3a1 detalles.
+   Por qué: Da un solo estilo a toda la agenda. Para cambiar el verde se editan los colores de este bloque. */
 
+/* ---------- Aplicar el tema verde ----------
+   Qué hace: Agrega los estilos del tema, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureGreenTheme(){
 
   if(document.getElementById("greenThemeStyle")) return;
@@ -1000,12 +1115,15 @@ function ensureGreenTheme(){
   document.head.appendChild(st);
 }
 
+/* ---------- Aplicar el tema al cargar ----------
+   Qué hace: Llama a la función de arriba.
+   Por qué: Para que el tema ya esté puesto al abrir la página. */
 ensureGreenTheme();
 
 
-/* ---------- Letra: Arial en TODA la página ----------
-   Esta regla gana sobre cualquier otra letra (HTML, otros estilos, ventanas, tablas, botones…).
-   Para cambiar de letra en todo el sitio, cambia solo "Arimo,Arial,Helvetica,sans-serif". */
+/* ---------- Letra: Arial en toda la página ----------
+   Qué hace: Pone Arial en TODO: HTML, ventanas, tablas y botones. Para cambiar la letra se cambia solo "Arimo,Arial,Helvetica,sans-serif".
+   Por qué: Esta regla gana sobre cualquier otra, así no queda ninguna letra distinta. */
 (function(){
   if(document.getElementById("arialEverywhereStyle")) return;
   const st = document.createElement("style");
@@ -1015,7 +1133,9 @@ ensureGreenTheme();
 })();
  
  
-/* ---------- Fondo animado: capas que se mueven con transform (el estilo está en estilos.css) ---------- */
+/* ---------- Fondo animado ----------
+   Qué hace: Crea las capas que se mueven en el fondo (el estilo está en estilos.css).
+   Por qué: Da vida a la pantalla sin gastar mucho del equipo. */
 (function(){
   if(document.querySelector(".amb-mist") || !document.body) return;
   const box = document.createElement("div");
@@ -1027,9 +1147,12 @@ ensureGreenTheme();
 
 
 /* ---------- Cuadros redondeados de Inicio ----------
-   "Próximas actividades" y "Mis materias" quedan cada una dentro de su cuadro con
-   bordes redondeados (título + botón + tarjetas). Se arma solo, sin tocar el HTML. */
+   Qué hace: "Próximas actividades" y "Mis materias" quedan cada una dentro de su cuadro redondeado (título, botón y tarjetas). Se arma solo, sin tocar el HTML.
+   Por qué: Para que Inicio se vea ordenado. */
 
+/* ---------- Estilos de los cuadros ----------
+   Qué hace: Agrega los estilos de estos cuadros, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureHomePanelStyle(){
 
   if(document.getElementById("homePanelStyle")) return;
@@ -1052,6 +1175,9 @@ function ensureHomePanelStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Envolver una sección ----------
+   Qué hace: Mete el título, su botón y la lista en un mismo cuadro.
+   Por qué: Así título y tarjetas se ven como una sola unidad. */
 // Mete el título (con su botón) y la lista en un mismo cuadro
 function wrapHomeSection(boxId, titleRe){
 
@@ -1083,6 +1209,9 @@ function wrapHomeSection(boxId, titleRe){
   if(head && !head.classList.contains("section-head")) head.classList.add("home-panel-head");
 }
 
+/* ---------- Armar los cuadros ----------
+   Qué hace: Envuelve "Próximas actividades" y "Mis materias".
+   Por qué: Es el paso que deja listos los cuadros de Inicio. */
 function setupHomePanels(){
   ensureHomePanelStyle();
   wrapHomeSection("homeActivities", /proximas actividades/);
@@ -1090,18 +1219,29 @@ function setupHomePanels(){
 }
 
 
-/* ---------- Render general ---------- */
+/* ---------- Dibujar todo (render) ----------
+   Qué hace: Funciones que dibujan la pantalla completa.
+   Por qué: Cada vez que algo cambia se vuelve a dibujar lo que se está viendo. */
  
+/* ---------- Paso seguro ----------
+   Qué hace: Ejecuta un paso; si falla, deja el error en la consola y sigue con los demás.
+   Por qué: Así un error en una parte no deja toda la página en blanco. */
 // Si una parte falla, las demás se siguen dibujando (y el error queda en la consola)
 function safeStep(fn){
   try{ fn(); }catch(e){ console.error("[ADE] Error en " + (fn.name || "render") + ":", e); }
 }
 
+/* ---------- Página que se está viendo ----------
+   Qué hace: Devuelve el nombre de la página activa.
+   Por qué: Para dibujar solo esa. */
 function activePageId(){
   const p = document.querySelector(".page.active");
   return p ? p.id : "inicio";
 }
 
+/* ---------- Render ----------
+   Qué hace: Dibuja solo la página que se está viendo (encabezados, cuadros, notificaciones, listas…).
+   Por qué: Antes se redibujaban todas en cada cambio y era más lento; al abrir otra página showPage() vuelve a llamar a render(). */
 // Solo se dibuja lo que se está viendo (antes se redibujaban TODAS las páginas en cada cambio).
 // Al entrar a otro apartado, showPage() vuelve a llamar a render() y se dibuja en ese momento.
 function render(){
@@ -1132,11 +1272,17 @@ function render(){
 }
  
  
-/* ---------- Pantalla pública ---------- */
+/* ---------- Pantalla pública ----------
+   Qué hace: Marca de la sección de la pantalla pública (sin iniciar sesión). */
  
  
-/* ---------- Arranque ---------- */
+/* ---------- Arranque ----------
+   Qué hace: Lo que se ejecuta al cargar la página.
+   Por qué: Deja todo preparado para empezar. */
  
+/* ---------- Mover el usuario ----------
+   Qué hace: Quita el reloj y pasa el usuario (foto y nombre) de abajo a la izquierda a la parte de arriba a la derecha. Se mueve el mismo bloque, así lo que lo usa sigue funcionando.
+   Por qué: Es un cambio de diseño que no rompe nada. */
 // Se quita el reloj y el usuario (foto + nombre) pasa de abajo a la izquierda
 // a la parte de arriba a la derecha. Se mueve el mismo bloque, así que todo lo
 // que lo usa (foto, nombre) sigue funcionando.
@@ -1152,10 +1298,16 @@ function render(){
   }
 })();
 
+/* ---------- Poner todo en marcha ----------
+   Qué hace: Pone los iconos del menú, el título inicial, la campanita y dibuja la pantalla.
+   Por qué: Es el primer dibujo de la aplicación. */
 setupNavIcons();
 setPageTitle("inicio");
 setupNotifBell();
 render();
  
+/* ---------- Sesión abierta ----------
+   Qué hace: Si ya había una sesión iniciada, entra directo a la aplicación.
+   Por qué: Para que la persona no tenga que iniciar sesión cada vez que recarga. */
 // Si ya había una sesión iniciada, entrar directo a la aplicación
 if(currentUser) enterApp();

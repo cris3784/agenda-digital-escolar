@@ -1,12 +1,32 @@
 <?php
+/* =========================================================
+   GUARDAR EL HORARIO
+   Qué hace: Agrega, cambia o quita una clase del horario de un grupo.
+   Por qué: Es lo que usa el administrador desde la página Horario; todo se revisa aquí, en el servidor.
+   ========================================================= */
+
 // Agregar, cambiar o quitar una clase del horario. Solo el administrador.
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae actividades_lib.php, que a su vez carga util.php y tiene las funciones de permisos.
+   Por qué: Para no repetir código. */
 require __DIR__ . '/actividades_lib.php';
+
+/* ---------- Solo POST y solo administrador ----------
+   Qué hace: Rechaza otros tipos de petición y a cualquiera que no sea administrador.
+   Por qué: Nadie más debe poder cambiar el horario. */
 solo_post();
 exigir_admin();
 
+/* ---------- Leer lo que mandó la página ----------
+   Qué hace: Toma los datos enviados y la acción pedida (agregar, editar o borrar).
+   Por qué: Un solo archivo maneja las tres acciones. */
 $d = entrada();
 $accion = (string)($d['accion'] ?? '');
 
+/* ---------- Revisar una hora ----------
+   Qué hace: Acepta horas como 6:30 o 06:30 y las deja en formato 06:30:00; si no es válida, devuelve nada.
+   Por qué: Evita guardar horas inventadas. */
 function hora_valida($t) {
     $t = trim((string)$t);
     if (!preg_match('/^([01]?\d|2[0-3]):([0-5]\d)$/', $t, $m)) {
@@ -15,6 +35,9 @@ function hora_valida($t) {
     return str_pad($m[1], 2, '0', STR_PAD_LEFT) . ':' . $m[2] . ':00';
 }
 
+/* ---------- Revisar el día ----------
+   Qué hace: Acepta lunes a sábado, con o sin tilde y sin importar mayúsculas.
+   Por qué: Para que "Miércoles" y "miercoles" valgan lo mismo. */
 // Solo días de la semana (con o sin tilde, sin importar mayúsculas)
 function dia_valido($dia) {
     $quitar = ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u'];
@@ -22,6 +45,9 @@ function dia_valido($dia) {
     return in_array($n, ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'], true);
 }
 
+/* ---------- Buscar el profesor ----------
+   Qué hace: Busca qué profesor dicta esa materia en ese grupo (o en todos los grupos).
+   Por qué: Así cada clase queda ligada a su profesor sin que el administrador lo escoja. */
 function profesor_de($conexion, $materia, $grupo) {
     $p = filas(
         $conexion,
@@ -32,6 +58,9 @@ function profesor_de($conexion, $materia, $grupo) {
     return $p ? (int)$p[0]['p'] : null;
 }
 
+/* ---------- Revisar los datos de una clase ----------
+   Qué hace: Comprueba que la materia exista, que la clase termine después de empezar y que el salón tenga máximo 20 letras.
+   Por qué: Se usa igual al agregar que al editar. */
 function datos_de_clase($conexion, $d) {
     $materia = trim((string)($d['materia'] ?? ''));
     $ini = hora_valida($d['inicio'] ?? '');
@@ -51,6 +80,9 @@ function datos_de_clase($conexion, $d) {
     return [(int)$m[0]['mat_codigo'], $ini, $fin, $salon];
 }
 
+/* ---------- Agregar una clase ----------
+   Qué hace: Revisa grupo, día y datos, y la guarda en la tabla horarios.
+   Por qué: Antes de guardar se confirma que todo exista. */
 if ($accion === 'agregar') {
     $grupo = trim((string)($d['grupo'] ?? ''));
     $dia = trim((string)($d['dia'] ?? ''));
@@ -74,12 +106,18 @@ if ($accion === 'agregar') {
     responder(['ok' => true]);
 }
 
+/* ---------- Buscar la clase existente ----------
+   Qué hace: Para editar o borrar, busca la clase por su código; si ya no existe, responde 404.
+   Por qué: Otra persona pudo haberla borrado antes. */
 $codigo = (int)($d['codigo'] ?? 0);
 $actual = $codigo > 0 ? filas($conexion, 'SELECT hor_gru_grupo AS g, hor_mat_materia AS m, hor_pro_profesor AS p FROM horarios WHERE hor_codigo = ?', 'i', [$codigo]) : [];
 if (!$actual) {
     fallar('Esa clase ya no existe.', 404);
 }
 
+/* ---------- Editar una clase ----------
+   Qué hace: Cambia materia, hora y salón; si cambió la materia, busca el profesor que corresponde.
+   Por qué: Si la materia sigue igual se conserva el mismo profesor. */
 if ($accion === 'editar') {
     list($mat, $ini, $fin, $salon) = datos_de_clase($conexion, $d);
     // Si cambió la materia, se busca el profesor que la dicta en ese grupo; si no, se conserva
@@ -96,6 +134,8 @@ if ($accion === 'editar') {
     responder(['ok' => true]);
 }
 
+/* ---------- Borrar una clase ----------
+   Qué hace: La elimina de la tabla horarios. */
 if ($accion === 'borrar') {
     if (!ejecutar($conexion, 'DELETE FROM horarios WHERE hor_codigo = ?', 'i', [$codigo])) {
         fallar('No se pudo borrar la clase.', 500);
@@ -103,4 +143,7 @@ if ($accion === 'borrar') {
     responder(['ok' => true]);
 }
 
+/* ---------- Acción desconocida ----------
+   Qué hace: Si la acción no es ninguna de las anteriores, responde con error.
+   Por qué: Protege contra peticiones raras. */
 fallar('Acción no válida.');

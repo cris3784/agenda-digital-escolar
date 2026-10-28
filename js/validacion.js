@@ -1,26 +1,41 @@
 /* =========================================================
-   VALIDACIÓN DE PROFESORES (solo administrador)
-   - Agrega el botón "Validación" debajo de "Administración" en el menú lateral
-   - Crea su propia ventana, no hace falta tocar el HTML
+   VALIDACIÓN DE PROFESORES (SOLO ADMINISTRADOR)
+   Qué hace: Agrega el botón "Validación" debajo de "Administración" en el menú lateral y una ventana para aprobar o rechazar profesores nuevos.
+   Por qué: Los profesores que se registran no pueden entrar hasta que el administrador los apruebe; así nadie se hace pasar por profesor.
+   Crea su propia ventana, no hace falta tocar el HTML.
    Cargar DESPUÉS de administracion.js y autenticacion.js:
    <script src="js/validacion.js"></script>
    ========================================================= */
 
 (function(){
 
+  /* ---------- Variable busy ----------
+     Qué hace: Marca si ya se está guardando una decisión.
+     Por qué: Evita que se apruebe o rechace dos veces por clics seguidos. */
   let busy = false;
 
+  /* ---------- Nombres de los estados ----------
+     Qué hace: Traduce el estado guardado (pendiente, rechazado) a la palabra que se muestra.
+     Por qué: Para que en pantalla se lea bonito, con mayúscula. */
   const ESTADOS = {pendiente:"Pendiente", rechazado:"Rechazado"};
 
+  /* ---------- ¿Es administrador? ----------
+     Qué hace: Responde si la persona que inició sesión es admin.
+     Por qué: Solo el administrador puede validar profesores; se revisa en varios lugares. */
   function esAdmin(){
     return typeof getRole === "function" && getRole() === "admin";
   }
 
+  /* ---------- Limpiar textos (esc) ----------
+     Qué hace: Convierte el texto para que no pueda meter código raro en la página.
+     Por qué: Los datos vienen de lo que escribió cada persona al registrarse; limpiarlos protege la página. */
   function esc(t){
     return typeof escapeHtml === "function" ? escapeHtml(String(t == null ? "" : t)) : String(t == null ? "" : t);
   }
 
-  /* ---------- Ventana ---------- */
+  /* ---------- Crear la ventana ----------
+     Qué hace: Arma la ventana con la lista de profesores y los botones, solo si todavía no existe.
+     Por qué: Se crea desde JavaScript para no tocar el index.html. */
 
   function asegurarVentana(){
 
@@ -47,17 +62,26 @@
     document.body.appendChild(modal);
   }
 
+  /* ---------- Cerrar la ventana ----------
+     Qué hace: Oculta la ventana de validación.
+     Por qué: Se usa desde los botones "×" y "Cerrar" y al hacer clic afuera. */
   window.cerrarValidacion = function(){
     const m = document.getElementById("validacionModal");
     if(m) m.classList.remove("show");
   };
 
+  /* ---------- Pedir la lista al servidor ----------
+     Qué hace: Trae los profesores que están pendientes o rechazados.
+     Por qué: La información real está en el servidor; aquí solo se consulta. */
   async function cargarLista(){
     const r = await apiPost("api/validacion.php", {accion:"listar"});
     if(!r.ok) return null;
     return r.profesores || [];
   }
 
+  /* ---------- Dibujar la lista ----------
+     Qué hace: Muestra una tarjeta por profesor con sus datos y los botones Aprobar y Rechazar.
+     Por qué: Un rechazado solo puede aprobarse; uno pendiente puede aprobarse o rechazarse. */
   function pintar(lista){
 
     const cont = document.getElementById("validacionLista");
@@ -87,6 +111,9 @@
     `).join("");
   }
 
+  /* ---------- Numerito rojo del menú ----------
+     Qué hace: Muestra en el botón del menú cuántos profesores esperan, y lo oculta si son cero.
+     Por qué: Para que el admin vea de un vistazo que hay profesores por revisar. */
   function actualizarInsignia(n){
     const b = document.getElementById("navValidacionBadge");
     if(!b) return;
@@ -94,6 +121,9 @@
     b.style.display = n > 0 ? "" : "none";
   }
 
+  /* ---------- Refrescar ----------
+     Qué hace: Vuelve a pedir la lista, la dibuja y actualiza el numerito rojo.
+     Por qué: Se usa después de cada cambio para que todo quede al día. */
   async function refrescar(){
     const lista = await cargarLista();
     if(lista === null) return;
@@ -101,6 +131,9 @@
     actualizarInsignia(lista.filter(p => p.estado === "pendiente").length);
   }
 
+  /* ---------- Abrir la ventana ----------
+     Qué hace: Muestra la ventana con "Cargando…" y luego llena la lista.
+     Por qué: Así la persona ve que algo está pasando mientras llegan los datos. */
   window.abrirValidacion = async function(){
     if(!esAdmin()) return;
     asegurarVentana();
@@ -110,6 +143,9 @@
     await refrescar();
   };
 
+  /* ---------- Aprobar o rechazar ----------
+     Qué hace: Pide confirmación si es rechazar, manda la decisión al servidor y actualiza la lista y la tabla de usuarios.
+     Por qué: Rechazar es una acción seria (el profesor no podrá entrar), por eso se pregunta antes. */
   window.decidirProfesor = async function(codigo, accion){
 
     if(!esAdmin() || busy) return;
@@ -141,7 +177,9 @@
     }
   };
 
-  /* ---------- Botón del menú lateral ---------- */
+  /* ---------- Buscar el botón "Administración" ----------
+     Qué hace: Recorre el menú buscando el elemento cuyo texto es exactamente "Administración".
+     Por qué: Necesitamos saber dónde está para poner "Validación" justo debajo, sin editar el HTML. */
 
   // Busca el elemento más pequeño del menú cuyo texto sea exactamente "Administración"
   function buscarBotonAdministracion(){
@@ -163,6 +201,9 @@
     return el;
   }
 
+  /* ---------- Poner el botón "Validación" ----------
+     Qué hace: Copia el botón de Administración, le cambia el texto a "Validación", le agrega el numerito rojo y lo coloca debajo.
+     Por qué: Así se ve igual que los demás botones. Si el usuario no es admin, el botón se quita. */
   function insertarBoton(){
 
     if(!esAdmin()){
@@ -203,6 +244,10 @@
   }
 
   // El menú aparece después de iniciar sesión, así que se revisa cada 1,5 s (es una comprobación liviana, sin servidor)
+
+  /* ---------- Revisar cada 1,5 segundos ----------
+     Qué hace: Intenta poner el botón cada 1,5 segundos.
+     Por qué: El menú aparece después de iniciar sesión y no sabemos justo cuándo; la revisión es liviana y no consulta al servidor. */
   setInterval(insertarBoton, 1500);
   document.addEventListener("DOMContentLoaded", insertarBoton);
 

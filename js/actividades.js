@@ -1,9 +1,12 @@
 /* =========================================================
-   TAMAÑO UNIFORME DE TODAS LAS PÁGINAS
-   (Inicio, Actividades, Materias, Horario, Calendario,
-    Mi perfil y Administración)
+   ACTIVIDADES
+   Qué hace: Maneja las actividades (tareas): la lista con filtros y pestañas, la ventana para ver una actividad, entregar el trabajo (estudiante), calificar (profesor) y crear, editar o borrar actividades. También fija el tamaño uniforme de todas las páginas.
+   Por qué: Es la parte principal de la agenda: el profesor publica tareas, el estudiante las entrega y el profesor las califica, todo guardado en el servidor para que cada quien vea lo suyo.
    ========================================================= */
- 
+
+/* ---------- Tamaño uniforme de todas las páginas ----------
+   Qué hace: Agrega los estilos que dan el mismo tamaño a Inicio, Actividades, Materias, Horario, Calendario, Mi perfil y Administración.
+   Por qué: Para que todas las páginas se vean con la misma medida y no salten de tamaño al cambiar. */
 function ensureHomeStyle(){
  
   if(document.getElementById("homeExtraStyle")) return;
@@ -53,17 +56,25 @@ function ensureHomeStyle(){
  
 }
  
+/* ---------- Aplicar el tamaño al cargar ----------
+   Qué hace: Llama a la función de arriba.
+   Por qué: Para que los estilos ya estén puestos al abrir la página. */
 ensureHomeStyle();
  
  
-/* =========================================================
-   ACTIVIDADES
-   ========================================================= */
+/* ---------- Actividades ----------
+   Qué hace: Las funciones de esta parte manejan la lista de actividades y sus entregas. */
  
+/* ---------- Lista de actividades ----------
+   Qué hace: Guarda en memoria las actividades (con sus entregas) mientras la página está abierta.
+   Por qué: Los datos reales están en la base de datos; así no se pide al servidor cada vez. */
 // Las actividades y las entregas viven en la base de datos (api/actividades.php).
 // Aquí solo hay una copia en memoria mientras la página está abierta.
 let activities = [];
 
+/* ---------- Traer actividades del servidor ----------
+   Qué hace: Pide las actividades y las guarda en la lista.
+   Por qué: Para ver siempre lo más reciente. */
 async function cargarActividadesServidor(){
   try{
     const resp = await fetch("api/actividades.php", {credentials:"same-origin", cache:"no-store"});
@@ -76,6 +87,9 @@ async function cargarActividadesServidor(){
   }
 }
 
+/* ---------- Recargar actividades ----------
+   Qué hace: Vuelve a pedirlas al servidor y redibuja la pantalla.
+   Por qué: Para ver cambios hechos por otras personas. */
 // Vuelve a pedir las actividades al servidor y redibuja la pantalla
 async function recargarActividades(){
   const ok = await cargarActividadesServidor();
@@ -83,6 +97,9 @@ async function recargarActividades(){
   return ok;
 }
 
+/* ---------- Enviar formularios con archivos ----------
+   Qué hace: Igual que apiPost pero para formularios que llevan archivos (FormData).
+   Por qué: Las tareas y entregas pueden tener un archivo adjunto. */
 // Como apiPost, pero para formularios con archivos (FormData)
 async function apiForm(url, datos){
   let r;
@@ -98,6 +115,9 @@ async function apiForm(url, datos){
   }
 }
 
+/* ---------- Reemplazar una actividad ----------
+   Qué hace: Cambia en la lista la actividad que devolvió el servidor, ya con sus entregas al día.
+   Por qué: Para ver el cambio sin recargar toda la lista. */
 // Cambia en la lista la actividad que devolvió el servidor (con sus entregas al día)
 function reemplazarActividad(nueva){
   if(!nueva) return;
@@ -105,15 +125,18 @@ function reemplazarActividad(nueva){
   if(pos >= 0) activities[pos] = nueva; else activities.unshift(nueva);
 }
  
+/* ---------- Actividades visibles ----------
+   Qué hace: Devuelve solo las actividades de la cuenta (su grupo o sus materias).
+   Por qué: Nadie debe ver tareas de otros grupos o materias. */
 // Solo las actividades que le corresponden a la cuenta (su grupo o sus materias)
 function visibleActivities(){
   return activities.filter(canSeeActivity);
 }
 
 
-/* ---------- Estado de una actividad: solo 2 ----------
-   pending = Pendiente  (el estudiante aún no entrega / nadie ha entregado)
-   done    = Entregada  (el estudiante ya entregó / ya hay entregas)          */
+/* ---------- Estado de una actividad ----------
+   Qué hace: Solo hay 2: pending (aún no entrega / nadie ha entregado) y done (ya entregó / ya hay entregas).
+   Por qué: Dos estados son fáciles de entender; el "vencida" se calcula aparte por la fecha. */
 
 function activityStatus(a){
   const subs = a && a.submissions ? a.submissions : null;
@@ -124,6 +147,9 @@ function activityStatus(a){
   return subs && Object.keys(subs).length ? "done" : "pending";
 }
 
+/* ---------- Fecha límite ----------
+   Qué hace: Calcula el momento en que vence: la fecha más la hora (si no hay hora, vence al terminar el día).
+   Por qué: Para saber con precisión si una entrega llegó a tiempo. */
 // Momento límite de entrega: la fecha + la hora (si no tiene hora, vence al terminar el día)
 function activityDeadline(a){
   if(!a || !a.date) return null;
@@ -132,6 +158,9 @@ function activityDeadline(a){
   return isNaN(d) ? null : d;
 }
 
+/* ---------- Escribir la hora ----------
+   Qué hace: Convierte "11:30" en "11:30 a. m.".
+   Por qué: Es como se acostumbra leer la hora. */
 // "11:30" → "11:30 a. m."
 function formatTime(t){
   if(!/^\d{1,2}:\d{2}$/.test(t || "")) return "";
@@ -139,11 +168,17 @@ function formatTime(t){
   return new Date(2000, 0, 1, h, m).toLocaleTimeString("es-CO", {hour:"numeric", minute:"2-digit", hour12:true});
 }
 
+/* ---------- Escribir la fecha de entrega ----------
+   Qué hace: Devuelve la fecha y hora de entrega ya escritas.
+   Por qué: Para mostrarlas en las tarjetas. */
 // "20/10/2026 · 11:59 p. m."
 function formatDue(a){
   return formatDate(a.date) + (a.time ? " · " + formatTime(a.time) : "");
 }
 
+/* ---------- Días que faltan ----------
+   Qué hace: Cuenta los días hasta la entrega (0 es hoy, negativo es que ya pasó).
+   Por qué: Sirve para las insignias "Vence hoy" o "Vence mañana". */
 // Días que faltan para la fecha de entrega (0 = hoy, negativo = ya pasó)
 function activityDaysLeft(a){
   if(!a || !a.date) return null;
@@ -152,6 +187,9 @@ function activityDaysLeft(a){
   return Math.round((new Date(a.date + "T00:00:00") - start) / 86400000);
 }
 
+/* ---------- Estado según la fecha ----------
+   Qué hace: Responde "late" (ya venció), "today" (vence hoy) o vacío (a tiempo o ya entregada).
+   Por qué: Una tarea entregada ya no se marca como vencida. */
 // Estado según la fecha: "late" = ya venció · "today" = vence hoy · "" = a tiempo o ya entregada
 function activityDue(a){
   if(!a || !a.date || activityStatus(a) !== "pending") return "";
@@ -161,6 +199,9 @@ function activityDue(a){
   return activityDaysLeft(a) === 0 ? "today" : "";
 }
 
+/* ---------- Insignia de la tarjeta ----------
+   Qué hace: Elige la etiqueta que se ve: Nota, Entregada, Vencida, Vence hoy / mañana / en 2 días o Pendiente.
+   Por qué: Que la persona vea el estado de cada tarea de un vistazo. */
 // Insignia de la tarjeta: Nota (estudiante calificado) · Entregada · Vencida · Vence hoy / mañana / en 2 días · Pendiente
 function activityBadge(a){
   if(typeof isGuardian === "function" && isGuardian()){
@@ -186,6 +227,9 @@ function activityBadge(a){
   return {key:"pending", label:"Pendiente"};
 }
 
+/* ---------- Estudiantes de la actividad ----------
+   Qué hace: Saca los estudiantes a los que les toca la actividad (los de su grupo; si es para todos, los grupos del profesor o todos).
+   Por qué: Para poder contar cuántos han entregado. */
 // Estudiantes registrados a los que les toca la actividad (los de su grupo; si es para todos, los grupos del profesor / todos)
 function activityStudents(a){
   let list = users.filter(u => u && u.role === "estudiante");
@@ -197,6 +241,9 @@ function activityStudents(a){
   return list;
 }
 
+/* ---------- Progreso de entregas ----------
+   Qué hace: Devuelve cuántos estudiantes entregaron y cuántos hay ("5 de 28").
+   Por qué: El profesor ve cómo va el grupo. */
 // {done, total}: cuántos de los estudiantes ya entregaron ("5 de 28")
 function activityProgress(a){
   const students = activityStudents(a);
@@ -209,6 +256,9 @@ function activityProgress(a){
   };
 }
 
+/* ---------- Enlace de un archivo ----------
+   Qué hace: Muestra el nombre del archivo y los botones "Ver" (si el navegador lo puede abrir) y "Descargar".
+   Por qué: No todos los tipos de archivo se pueden abrir en el navegador. */
 // Un archivo (el de la actividad o el de una entrega): su nombre y los botones "Ver" (si el navegador lo puede abrir) y "Descargar"
 function actFileLink(f){
   const url = String(f.data || "");
@@ -225,7 +275,9 @@ function actFileLink(f){
 }
 
 
-/* ---------- Estilos del apartado Actividades ---------- */
+/* ---------- Estilos de Actividades ----------
+   Qué hace: Agrega los estilos (colores, tamaños, formas) de todo este apartado, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 
 function ensureActivityStyle(){
 
@@ -411,10 +463,18 @@ function ensureActivityStyle(){
 }
 
 
-/* ---------- Barra de filtros (se crea sola, no hace falta tocar el HTML) ---------- */
+/* ---------- Barra de filtros ----------
+   Qué hace: Crea la barra de arriba: buscar por texto, materia, grupo y fecha, más las pestañas de estado. Se crea sola, no hace falta tocar el HTML.
+   Por qué: Cuando hay muchas actividades, los filtros ayudan a encontrar la que se busca. */
 
+/* ---------- Filtros activos ----------
+   Qué hace: Guarda lo que está elegido en cada filtro.
+   Por qué: Se recuerda al redibujar la lista. */
 const ACT_FILTER = {q:"", subject:"", group:"", status:"all", date:"all"};
 
+/* ---------- Iconos de los filtros ----------
+   Qué hace: Dibujos de la barra de filtros.
+   Por qué: Se guardan como texto, sin imágenes aparte. */
 const ACT_ICONS = {
   search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   book:'<svg viewBox="0 0 24 24"><path d="M12 6.8C10 5.2 7.3 4.6 3.8 4.8v13.4c3.5-.2 6.2.4 8.2 2 2-1.6 4.7-2.2 8.2-2V4.8c-3.5-.2-6.2.4-8.2 2z"/><path d="M12 6.8v13.4"/></svg>',
@@ -429,6 +489,9 @@ const ACT_ICONS = {
   trash:'<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>'
 };
 
+/* ---------- Crear la barra de filtros ----------
+   Qué hace: Arma la barra y conecta cada filtro; la búsqueda espera un instante a que se termine de escribir.
+   Por qué: Así no se redibuja con cada letra y se siente más fluido. */
 function ensureActivityToolbar(){
 
   const list = $("activityList");
@@ -479,6 +542,9 @@ function ensureActivityToolbar(){
   });
 }
 
+/* ---------- Filtro por fecha ----------
+   Qué hace: Revisa si la actividad cumple el filtro de fecha elegido.
+   Por qué: Es parte del filtrado. */
 function actMatchesDate(a){
   const f = ACT_FILTER.date;
   if(f === "all") return true;
@@ -493,6 +559,9 @@ function actMatchesDate(a){
   return true;
 }
 
+/* ---------- Dibujar la lista ----------
+   Qué hace: Llena los filtros de materia y grupo con lo que realmente aparece, aplica los filtros, cuenta Pendientes, Vencidas y Entregadas, y dibuja las tarjetas.
+   Por qué: Los números de las pestañas son útiles porque cuentan sin el filtro de estado. */
 function renderActivityList(){
 
   const all = visibleActivities()
@@ -559,6 +628,9 @@ function renderActivityList(){
     : '<div class="card empty">' + (all.length ? "No hay actividades con esos filtros." : "No hay actividades registradas.") + '</div>';
 }
 
+/* ---------- Dibujar Actividades ----------
+   Qué hace: Dibuja la lista y la parte de Inicio con las 4 próximas pendientes y las vencidas.
+   Por qué: Es la función que se llama cada vez que cambia algo. */
 function renderActivities(){
 
   ensureActivityStyle();
@@ -578,6 +650,9 @@ function renderActivities(){
   renderHomeLate(all.filter(a => activityDue(a) === "late").reverse());      // la que venció más reciente, primero
 }
 
+/* ---------- Cuadro de vencidas en Inicio ----------
+   Qué hace: Muestra las vencidas en su propio cuadro, aparte de las próximas.
+   Por qué: Para que no se mezclen con las que aún hay tiempo. */
 // Inicio: las vencidas van en su propio cuadro, aparte de las próximas
 function renderHomeLate(late){
 
@@ -617,6 +692,9 @@ function renderHomeLate(late){
   $("homeLate").innerHTML = late.slice(0, 4).map(card).join("");
 }
 
+/* ---------- Ver todas las vencidas ----------
+   Qué hace: Abre Actividades ya filtrada en Vencidas.
+   Por qué: Es lo que pasa al hacer clic en "Ver todas". */
 // "Ver todas" de Vencidas: abre Actividades ya filtradas
 function goToLateActivities(){
   Object.assign(ACT_FILTER, {q:"", subject:"", group:"", date:"all", status:"late"});
@@ -626,6 +704,9 @@ function goToLateActivities(){
   renderActivityList();
 }
 
+/* ---------- Aviso de entregas cercanas ----------
+   Qué hace: Al entrar, el estudiante recibe un aviso si tiene actividades que vencen hoy, mañana o en 2 días; solo una vez al día.
+   Por qué: Para que no se le pase una entrega. */
 // Estudiante: al entrar, un aviso si tiene actividades que vencen hoy, mañana o en 2 días
 function announceDueSoon(){
 
@@ -653,10 +734,18 @@ function announceDueSoon(){
 }
 
 
-/* ---------- Ventana "Ver actividad" ---------- */
+/* ---------- Ventana "Ver actividad" ----------
+   Qué hace: Muestra el detalle de una actividad.
+   Por qué: Es donde se lee la tarea completa y, según el cargo, se entrega o se califica. */
 
+/* ---------- Actividad abierta ----------
+   Qué hace: Guarda cuál actividad está abierta en la ventana.
+   Por qué: Para actualizarla si cambia. */
 let actDetailIndex = null;
 
+/* ---------- Crear la ventana ----------
+   Qué hace: Arma la ventana de detalle, una sola vez.
+   Por qué: Se crea desde aquí para no tocar el HTML. */
 function ensureActDetailModal(){
 
   if($("actDetailModal")) return;
@@ -676,12 +765,17 @@ function ensureActDetailModal(){
   document.body.appendChild(modal);
 }
 
+/* ---------- Cerrar la ventana ----------
+   Qué hace: Oculta la ventana y olvida cuál actividad estaba abierta. */
 function closeActDetail(){
   const m = $("actDetailModal");
   if(m) m.classList.remove("show");
   actDetailIndex = null;
 }
 
+/* ---------- Abrir una actividad ----------
+   Qué hace: Llena la ventana con el título, descripción, archivo, fecha y, según el cargo, la entrega del estudiante o la tabla de entregas con notas.
+   Por qué: Cada cargo necesita ver y hacer cosas distintas. */
 function viewActivity(i){
 
   const a = activities[i];
@@ -786,6 +880,9 @@ function viewActivity(i){
   $("actDetailModal").classList.add("show");
 }
 
+/* ---------- Filtrar entregas ----------
+   Qué hace: Muestra todos, los que entregaron o los que faltan.
+   Por qué: El profesor puede ver rápido quién falta. */
 // Filtro de la tabla de entregas: todos / entregaron / faltan
 function filterSubs(btn, mode){
   const box = btn.closest("#actDetailBody") || document;
@@ -795,6 +892,9 @@ function filterSubs(btn, mode){
   });
 }
 
+/* ---------- Calificar una entrega ----------
+   Qué hace: Revisa la nota (1 a 5) y el comentario, los guarda y le avisa al estudiante.
+   Por qué: Se revisa antes para evitar notas fuera de rango; el aviso informa al estudiante. */
 // Guarda la nota (1 a 5) y el comentario de una entrega, y le avisa al estudiante
 let gradeBusy = false;
 
@@ -840,11 +940,19 @@ async function saveGrade(btn, i){
 }
  
  
-/* ---------- Entrega de trabajo del estudiante ---------- */
+/* ---------- Entrega de trabajo del estudiante ----------
+   Qué hace: Permite al estudiante subir su archivo.
+   Por qué: Solo los estudiantes entregan; profesores y administrador no. */
  
+/* ---------- Variables de la entrega ----------
+   Qué hace: Guardan el selector de archivo y si se está enviando.
+   Por qué: Evita enviar dos veces. */
 let studentSubmissionInput = null;
 let submitBusy = false;
  
+/* ---------- Entregar el trabajo ----------
+   Qué hace: Abre el selector de archivo, revisa que pese menos de 10 MB y sube la entrega al servidor.
+   Por qué: Es lo que pasa al hacer clic en "Entregar". */
 function submitWork(i){
  
   // Solo el estudiante entrega trabajos (profesores y administrador no)
@@ -891,10 +999,18 @@ function submitWork(i){
 }
  
  
-/* ---------- Ventana "Nueva actividad" ---------- */
+/* ---------- Ventana "Nueva actividad" ----------
+   Qué hace: La ventana para crear o editar una actividad.
+   Por qué: Es la misma ventana para las dos cosas. */
  
+/* ---------- Actividad que se edita ----------
+   Qué hace: Guarda el código de la actividad en edición (nada si es nueva).
+   Por qué: Así al guardar se sabe si es nueva o editada. */
 let editingActivityId = null;      // código de la actividad que se está editando (null = nueva)
 
+/* ---------- Preparar la ventana ----------
+   Qué hace: Llena materias y grupos (el profesor solo ve los suyos; el administrador, todos) y crea la hora límite si falta.
+   Por qué: Para que el profesor no cree actividades en materias o grupos ajenos. */
 // Llena las listas de la ventana (materias, grupos) y crea los campos que faltan
 function prepareActivityModal(){
 
@@ -937,6 +1053,9 @@ function prepareActivityModal(){
   }
 }
 
+/* ---------- Modo de la ventana ----------
+   Qué hace: Pone "Nueva actividad" o "Editar actividad" en el título y el botón.
+   Por qué: Para que se entienda qué se está haciendo. */
 // Cambia el título y el botón de la ventana: "Nueva actividad" o "Editar actividad"
 function setActivityModalMode(editing){
   const h = document.querySelector("#modal .modal-head h2");
@@ -950,11 +1069,17 @@ function setActivityModalMode(editing){
   if(info){ info.style.display = editing ? "" : "none"; if(!editing) info.innerHTML = ""; }
 }
 
+/* ---------- Agregar una opción si falta ----------
+   Qué hace: Agrega a una lista un valor que ya no está (por ejemplo una materia borrada).
+   Por qué: Así al editar no se pierde el dato. */
 function addOptionIfMissing(select, value, label){
   if(!select) return;
   if(![...select.options].some(o => o.value === value)) select.add(new Option(label || value, value));
 }
 
+/* ---------- Abrir para crear ----------
+   Qué hace: Limpia los campos y abre la ventana en modo "nueva".
+   Por qué: Para que no queden datos de la vez anterior. */
 function openModal(){
   if(!requirePermission("create","actividad")) return;
   editingActivityId = null;
@@ -966,6 +1091,9 @@ function openModal(){
   $("modal").classList.add("show");
 }
 
+/* ---------- Abrir para editar ----------
+   Qué hace: Abre la ventana con los datos de la actividad para cambiarlos.
+   Por qué: Se reutiliza la misma ventana. */
 // La misma ventana, con los datos de la actividad, para cambiarlos
 function openEditModal(i){
   const a = activities[i];
@@ -998,15 +1126,25 @@ function openEditModal(i){
   $("modal").classList.add("show");
 }
  
+/* ---------- Cerrar la ventana ----------
+   Qué hace: Oculta la ventana de nueva actividad. */
 function closeModal(){
   $("modal").classList.remove("show");
 }
  
  
-/* ---------- Agregar / editar / borrar ---------- */
+/* ---------- Agregar, editar y borrar ----------
+   Qué hace: Funciones que guardan los cambios de actividades en el servidor.
+   Por qué: Toda actividad se guarda en la base de datos para que todos la vean. */
  
+/* ---------- Guardando… ----------
+   Qué hace: Marca si se está guardando.
+   Por qué: Evita guardar dos veces. */
 let actividadBusy = false;
 
+/* ---------- Agregar actividad ----------
+   Qué hace: Revisa los datos, sube el archivo, la guarda, avisa a los del grupo y cierra la ventana.
+   Por qué: Se revisan los campos antes para dar mensajes claros. */
 async function addActivity(){
  
   if(!requirePermission("create","actividad")) return;
@@ -1062,6 +1200,9 @@ async function addActivity(){
   render();
 }
  
+/* ---------- Editar actividad ----------
+   Qué hace: Revisa el permiso y abre la ventana de edición.
+   Por qué: El profesor solo edita lo suyo. */
 function editActivity(i){
  
   if(!requirePermission("edit","actividad")) return;
@@ -1072,6 +1213,9 @@ function editActivity(i){
   openEditModal(i);
 }
 
+/* ---------- Guardar la edición ----------
+   Qué hace: Revisa los datos y manda los cambios (también quitar o cambiar el archivo).
+   Por qué: Así lo que se ve es lo que quedó guardado. */
 async function saveActivityEdit(){
 
   if(!requirePermission("edit","actividad")) return;
@@ -1117,6 +1261,9 @@ async function saveActivityEdit(){
   render();
 }
  
+/* ---------- Borrar actividad ----------
+   Qué hace: Pide confirmación y la borra en el servidor junto con sus entregas.
+   Por qué: Es definitivo y también se pierden las entregas, por eso se pregunta antes. */
 async function deleteActivity(i){
   if(!requirePermission("delete","actividad")) return;
   if(!canManageActivity(activities[i])) return denyPermission();

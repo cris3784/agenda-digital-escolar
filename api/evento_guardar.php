@@ -1,18 +1,38 @@
 <?php
+/* =========================================================
+   GUARDAR EVENTOS DEL CALENDARIO
+   Qué hace: Crea, cambia o borra un evento del calendario.
+   Por qué: Administrador: cualquiera. Profesor: solo los suyos y para sus grupos. Estudiante: nada. Las reglas se revisan aquí en el servidor.
+   ========================================================= */
+
 // Crear, cambiar o borrar un evento del calendario.
 // Administrador: cualquiera · Profesor: solo los suyos y para sus grupos · Estudiante: nada.
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae actividades_lib.php (permisos y funciones comunes).
+   Por qué: Para no repetir código. */
 require __DIR__ . '/actividades_lib.php';
+
+/* ---------- Solo POST y sesión ----------
+   Qué hace: Rechaza otros tipos de petición y exige sesión iniciada. */
 solo_post();
 exigir_sesion();
 
+/* ---------- Quién es la persona ----------
+   Qué hace: Si no es profesor ni administrador, responde 403. */
 $c = contexto($conexion);
 if ($c['rol'] !== 'admin' && $c['rol'] !== 'profesor') {
     fallar('No tienes permiso para hacer esto.', 403);
 }
 
+/* ---------- Datos recibidos ----------
+   Qué hace: Lee los datos enviados y la acción pedida. */
 $d = entrada();
 $accion = (string)($d['accion'] ?? '');
 
+/* ---------- Buscar un evento ----------
+   Qué hace: Busca las filas de un evento por su número, o por "lote" si es un evento de varios grupos.
+   Por qué: Un evento para varios grupos se guarda como una fila por grupo. */
 function filas_de_evento($conexion, $id) {
     $id = (string)$id;
     if (strpos($id, 'l:') === 0) {
@@ -21,6 +41,9 @@ function filas_de_evento($conexion, $id) {
     return filas($conexion, 'SELECT * FROM eventos WHERE eve_codigo = ?', 'i', [(int)$id]);
 }
 
+/* ---------- Guardar un evento ----------
+   Qué hace: Inserta una fila por cada grupo (o una sola si es para todo el colegio).
+   Por qué: Para varios grupos las filas comparten un código de lote. */
 function insertar_evento($conexion, $tipo, $titulo, $desc, $fecha, $grupos, $pro, $adm) {
     $lista = $grupos ? $grupos : [null];
     $lote = count($lista) > 1 ? bin2hex(random_bytes(6)) : null;
@@ -37,6 +60,9 @@ function insertar_evento($conexion, $tipo, $titulo, $desc, $fecha, $grupos, $pro
     return true;
 }
 
+/* ---------- Editar o borrar ----------
+   Qué hace: Busca el evento; un profesor solo puede cambiar los que publicó él. Si es borrar, lo borra.
+   Por qué: Los eventos del administrador no los toca un profesor. */
 if ($accion === 'borrar' || $accion === 'editar') {
     $filasEvento = filas_de_evento($conexion, $d['id'] ?? '');
     if (!$filasEvento) {
@@ -56,6 +82,9 @@ if ($accion === 'borrar' || $accion === 'editar') {
     }
 }
 
+/* ---------- Revisar los datos ----------
+   Qué hace: Revisa fecha, título (hasta 150 letras), descripción (hasta 5000) y que los grupos existan.
+   Por qué: Se revisa igual al crear que al editar. */
 // crear / editar: se validan los datos
 $fecha  = trim((string)($d['fecha'] ?? ''));
 $titulo = trim((string)($d['titulo'] ?? ''));
@@ -78,6 +107,9 @@ foreach ($grupos as $g) {
     }
 }
 
+/* ---------- Grupos del profesor ----------
+   Qué hace: Un profesor solo publica para sus grupos; si no elige ninguno, se usan los suyos.
+   Por qué: Un profesor con grupos nunca publica para todo el colegio. */
 if ($c['rol'] === 'profesor') {
     $sinLimite = false;
     $mios = [];
@@ -101,9 +133,14 @@ if ($c['rol'] === 'profesor') {
     }
 }
 
+/* ---------- Guardar todo junto ----------
+   Qué hace: Inicia una operación que se guarda completa o no se guarda.
+   Por qué: Así un evento no queda a medias. */
 $conexion->begin_transaction();
 $ok = true;
 
+/* ---------- Crear ----------
+   Qué hace: Guarda el evento marcando quién lo publicó (profesor o colegio). */
 if ($accion === 'crear') {
     $esProfe = $c['rol'] === 'profesor';
     $ok = insertar_evento(
@@ -111,6 +148,10 @@ if ($accion === 'crear') {
         $esProfe ? $c['codigo'] : null, $esProfe ? null : $c['codigo']
     );
 } elseif ($accion === 'editar') {
+
+    /* ---------- Editar ----------
+       Qué hace: Borra las filas viejas y guarda las nuevas, sin cambiar quién lo publicó.
+       Por qué: Es más sencillo que modificar fila por fila cuando cambian los grupos. */
     // Se conserva quién lo publicó; se reemplazan sus filas por las nuevas
     foreach ($filasEvento as $fila) {
         if (!ejecutar($conexion, 'DELETE FROM eventos WHERE eve_codigo = ?', 'i', [(int)$fila['eve_codigo']])) {
@@ -130,9 +171,14 @@ if ($accion === 'crear') {
     fallar('Acción no válida.');
 }
 
+/* ---------- Si algo falló ----------
+   Qué hace: Deshace todo y responde con error. */
 if (!$ok) {
     $conexion->rollback();
     fallar('No se pudo guardar el evento. Intenta de nuevo.', 500);
 }
+
+/* ---------- Confirmar ----------
+   Qué hace: Guarda definitivamente los cambios y responde. */
 $conexion->commit();
 responder(['ok' => true]);

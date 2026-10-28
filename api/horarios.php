@@ -1,11 +1,27 @@
 <?php
+/* =========================================================
+   HORARIOS
+   Qué hace: Devuelve los horarios: una lista de clases por grupo, ya ordenada por días.
+   Por qué: Cada rol recibe solo lo que le toca: el estudiante su grupo, el profesor sus grupos y el administrador todos.
+   ========================================================= */
+
 // Horarios: una lista de clases por grupo, ya ordenada por días.
 // Estudiante = su grupo · profesor = sus grupos · administrador = todos los grupos.
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae actividades_lib.php (permisos y funciones comunes).
+   Por qué: Para no repetir código. */
 require __DIR__ . '/actividades_lib.php';
 exigir_sesion();
 
+/* ---------- Quién es la persona ----------
+   Qué hace: Saca el rol, el grupo y las materias de quien tiene la sesión.
+   Por qué: Con eso se decide qué horarios puede ver. */
 $c = contexto($conexion);
 
+/* ---------- Escribir la hora corta ----------
+   Qué hace: Convierte 13:05:00 en 1:05.
+   Por qué: Es como se muestra en la página. */
 function hora_corta($t) {
     $p = explode(':', (string)$t);
     $h = (int)$p[0];
@@ -13,10 +29,17 @@ function hora_corta($t) {
     return ($h % 12 === 0 ? 12 : $h % 12) . ':' . str_pad((string)$m, 2, '0', STR_PAD_LEFT);
 }
 
+/* ---------- Todos los grupos ----------
+   Qué hace: Trae la lista de grupos del colegio.
+   Por qué: Es la base para decidir cuáles se envían. */
 $todos = [];
 foreach (filas($conexion, 'SELECT gru_codigo AS g FROM grupos') as $f) {
     $todos[] = $f['g'];
 }
+
+/* ---------- Ordenar ----------
+   Qué hace: Ordena los grupos (6-1, 6-2… 11-9).
+   Por qué: Para que se vean en orden. */
 // Orden natural: 6-1, 6-2 ... 10-1 ... 11-9
 usort($todos, function ($a, $b) {
     $x = array_map('intval', explode('-', $a));
@@ -24,6 +47,9 @@ usort($todos, function ($a, $b) {
     return [$x[0], $x[1] ?? 0] <=> [$y[0], $y[1] ?? 0];
 });
 
+/* ---------- Qué grupos ve cada rol ----------
+   Qué hace: Admin: todos. Estudiante: el suyo. Acudiente: los de sus hijos. Profesor: los que atiende (o todos si no tiene límite).
+   Por qué: Cada persona ve solo lo que le corresponde. */
 if ($c['rol'] === 'admin') {
     $grupos = $todos;
 } elseif ($c['rol'] === 'estudiante') {
@@ -47,10 +73,16 @@ if ($c['rol'] === 'admin') {
     }));
 }
 
+/* ---------- Sin grupos ----------
+   Qué hace: Si no hay ningún grupo para mostrar, responde con una lista vacía.
+   Por qué: Evita consultas innecesarias. */
 if (!$grupos) {
     responder(['ok' => true, 'horarios' => (object)[]]);
 }
 
+/* ---------- Preparar los días ----------
+   Qué hace: Arma para cada grupo los cinco días (lunes a viernes) vacíos.
+   Por qué: Así todos los días aparecen aunque no tengan clases. */
 $dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 $salida = [];
 $indice = [];
@@ -62,6 +94,9 @@ foreach ($grupos as $g) {
     }
 }
 
+/* ---------- Pedir las clases ----------
+   Qué hace: Trae de la base de datos las clases de esos grupos con la materia, el salón y el profesor, ordenadas por hora.
+   Por qué: Una sola consulta para todos los grupos es más rápida. */
 $marcas = implode(',', array_fill(0, count($grupos), '?'));
 $filas = filas(
     $conexion,
@@ -75,6 +110,9 @@ $filas = filas(
     $grupos
 );
 
+/* ---------- Poner cada clase en su día ----------
+   Qué hace: Ubica cada clase en su grupo y día con su hora, salón y profesor.
+   Por qué: Es la forma que el JavaScript de la página ya sabe leer. */
 foreach ($filas as $f) {
     $g = $f['g'];
     $d = $f['dia'];
@@ -94,4 +132,6 @@ foreach ($filas as $f) {
     $salida[$g][$indice[$g][$d]]['classes'][] = $clase;
 }
 
+/* ---------- Responder ----------
+   Qué hace: Manda los horarios en formato JSON. */
 responder(['ok' => true, 'horarios' => $salida]);

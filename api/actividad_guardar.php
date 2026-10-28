@@ -1,18 +1,42 @@
 <?php
+/* =========================================================
+   GUARDAR ACTIVIDADES
+   Qué hace: Crea, edita o borra una actividad. Solo profesores (de sus materias y grupos) y administrador.
+   Por qué: Se recibe como formulario (FormData) porque la actividad puede traer un archivo adjunto. Las reglas se revisan aquí, no solo en el navegador.
+   ========================================================= */
+
 // Crear, editar o borrar una actividad. Solo profesores (de sus materias y grupos) y administrador.
 // Se envía como formulario (FormData) porque puede traer un archivo adjunto.
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae actividades_lib.php (permisos y manejo de archivos).
+   Por qué: Para no repetir código. */
 require __DIR__ . '/actividades_lib.php';
+
+/* ---------- Solo POST y sesión ----------
+   Qué hace: Rechaza otros tipos de petición y exige sesión iniciada.
+   Por qué: Crear o borrar nunca debe hacerse con un enlace normal. */
 solo_post();
 exigir_sesion();
 
+/* ---------- Quién es la persona y qué puede ----------
+   Qué hace: Saca el rol y las materias/grupos; si no es admin ni profesor, responde 403.
+   Por qué: Estudiantes y acudientes no crean actividades. */
 $c = contexto($conexion);
 if ($c['rol'] !== 'admin' && $c['rol'] !== 'profesor') {
     fallar('No tienes permiso para hacer esto.', 403);
 }
 
+/* ---------- Acción pedida ----------
+   Qué hace: Lee si se quiere crear, editar o borrar.
+   Por qué: Un solo archivo maneja las tres. */
 $accion = (string)($_POST['accion'] ?? '');
 
 // Lee y valida los datos de la actividad (los mismos al crear y al editar)
+
+/* ---------- Leer y revisar los datos ----------
+   Qué hace: Revisa título (hasta 150 letras), materia, grupo, fecha, hora y descripción (hasta 5000). El profesor solo puede usar su materia y sus grupos.
+   Por qué: Se usa igual al crear que al editar; sin hora, la entrega vence a las 23:59. */
 function leer_actividad($conexion, $c) {
     $titulo  = trim((string)($_POST['titulo'] ?? ''));
     $materia = trim((string)($_POST['materia'] ?? ''));
@@ -60,6 +84,10 @@ function leer_actividad($conexion, $c) {
 }
 
 // ¿Viene un archivo adjunto nuevo? (se valida el tamaño antes de tocar la base de datos)
+
+/* ---------- ¿Hay archivo adjunto nuevo? ----------
+   Qué hace: Revisa que se haya subido bien y que pese menos de 5 MB.
+   Por qué: Se revisa antes de tocar la base de datos. */
 function archivo_nuevo() {
     if (empty($_FILES['archivo']) || $_FILES['archivo']['error'] === UPLOAD_ERR_NO_FILE) {
         return null;
@@ -74,10 +102,16 @@ function archivo_nuevo() {
     return $f;
 }
 
+/* ---------- Crear una actividad ----------
+   Qué hace: Guarda la actividad, y si trae archivo lo guarda con nombre al azar; si el archivo falla, borra la actividad.
+   Por qué: Evita actividades a medias. */
 if ($accion === 'crear') {
     list($titulo, $mat, $grupo, $fecha, $hora, $desc) = leer_actividad($conexion, $c);
     $archivo = archivo_nuevo();
 
+    /* ---------- Quién la creó ----------
+       Qué hace: Anota si la creó un profesor o el administrador.
+       Por qué: Se usa para saber de quién es cada actividad. */
     $pro = $c['rol'] === 'profesor' ? $c['codigo'] : null;
     $adm = $c['rol'] === 'admin' ? $c['codigo'] : null;
 
@@ -108,6 +142,9 @@ if ($accion === 'crear') {
     responder(['ok' => true, 'actividad' => actividad_armada($conexion, $c, $codigo)]);
 }
 
+/* ---------- Buscar la actividad ----------
+   Qué hace: Para editar o borrar, la busca; si no existe responde 404 y si no puede gestionarla responde 403.
+   Por qué: Un profesor no puede tocar actividades de otra materia. */
 $codigo = (int)($_POST['codigo'] ?? 0);
 $a = $codigo > 0 ? cargar_actividad_fila($conexion, $codigo) : null;
 if (!$a) {
@@ -117,6 +154,9 @@ if (!puede_gestionar($c, $a)) {
     fallar('No tienes permiso para hacer esto.', 403);
 }
 
+/* ---------- Editar una actividad ----------
+   Qué hace: Cambia los datos y, si corresponde, reemplaza o quita el archivo adjunto.
+   Por qué: El archivo viejo se borra del servidor para no acumular basura. */
 if ($accion === 'editar') {
     list($titulo, $mat, $grupo, $fecha, $hora, $desc) = leer_actividad($conexion, $c);
     $archivo = archivo_nuevo();
@@ -131,6 +171,8 @@ if ($accion === 'editar') {
         fallar('No se pudo guardar la actividad.', 500);
     }
 
+    /* ---------- Archivo adjunto anterior ----------
+       Qué hace: Guarda la ruta del archivo viejo para borrarlo si se cambia o se quita. */
     $rutaVieja = $a['act_archivo_ruta'] ?? null;
 
     if ($archivo) {
@@ -153,6 +195,9 @@ if ($accion === 'editar') {
     responder(['ok' => true, 'actividad' => actividad_armada($conexion, $c, $codigo)]);
 }
 
+/* ---------- Borrar una actividad ----------
+   Qué hace: Borra la actividad y todos los archivos que tenía (adjunto y entregas).
+   Por qué: Se borran los archivos del disco para que no queden perdidos. */
 if ($accion === 'borrar') {
     $rutas = filas($conexion, 'SELECT ent_archivo_ruta AS r FROM entregas WHERE ent_act_actividad = ?', 'i', [$codigo]);
     if (!ejecutar($conexion, 'DELETE FROM actividades WHERE act_codigo = ?', 'i', [$codigo])) {
@@ -165,4 +210,6 @@ if ($accion === 'borrar') {
     responder(['ok' => true]);
 }
 
+/* ---------- Acción desconocida ----------
+   Qué hace: Si la acción no es ninguna de las anteriores, responde con error. */
 fallar('Acción no válida.');

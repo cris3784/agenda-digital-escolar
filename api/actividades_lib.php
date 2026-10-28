@@ -1,13 +1,31 @@
 <?php
+/* =========================================================
+   FUNCIONES COMPARTIDAS DE ACTIVIDADES
+   Qué hace: Reúne lo que usan varios archivos de actividades y entregas: manejo de archivos, permisos y la forma de armar los datos.
+   Por qué: Así las reglas importantes (quién ve y quién gestiona qué) están en un solo lugar y son las mismas en todos los archivos.
+   ========================================================= */
+
 // Funciones compartidas por los archivos de actividades y entregas.
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae util.php (conexión, sesión y funciones comunes). */
 require __DIR__ . '/util.php';
 
+/* ---------- Zona horaria ----------
+   Qué hace: Pone la hora de Colombia (America/Bogota).
+   Por qué: Para que las fechas y horas límite se calculen con la hora correcta. */
 date_default_timezone_set('America/Bogota');
 
+/* ---------- Fecha y hora actual ----------
+   Qué hace: Devuelve la fecha y hora de ahora lista para guardar.
+   Por qué: Se usa al crear y al entregar. */
 function ahora() {
     return date('Y-m-d H:i:s');
 }
 
+/* ---------- Fecha en español ----------
+   Qué hace: Convierte una fecha en texto como "23/10/2026, 11:21:05 p. m.".
+   Por qué: Así la mostraba la página. */
 // "23/10/2026, 11:21:05 p. m."  (así lo mostraba la página)
 function fecha_es($texto) {
     $t = strtotime($texto);
@@ -17,6 +35,9 @@ function fecha_es($texto) {
     return date('d/m/Y, g:i:s', $t) . (date('a', $t) === 'am' ? ' a. m.' : ' p. m.');
 }
 
+/* ---------- Carpeta de trabajos ----------
+   Qué hace: Crea (si falta) la carpeta de archivos y le pone un .htaccess que la cierra al público.
+   Por qué: Los archivos solo se bajan por archivo.php, que revisa los permisos. */
 // Carpeta donde se guardan los archivos. Queda cerrada al público: solo se baja por archivo.php
 function carpeta_trabajos() {
     $dir = dirname(__DIR__) . '/uploads/trabajos';
@@ -28,6 +49,9 @@ function carpeta_trabajos() {
     return $dir;
 }
 
+/* ---------- Guardar un archivo ----------
+   Qué hace: Guarda el archivo con un nombre al azar y devuelve su ruta.
+   Por qué: El nombre al azar evita adivinar archivos y choques de nombres. */
 // Guarda un archivo subido con un nombre al azar. Devuelve la ruta relativa o null.
 function guardar_archivo_subido($tmp, $prefijo) {
     $dir = carpeta_trabajos();
@@ -38,6 +62,9 @@ function guardar_archivo_subido($tmp, $prefijo) {
     return 'uploads/trabajos/' . $nombre;
 }
 
+/* ---------- Borrar un archivo ----------
+   Qué hace: Borra el archivo, pero solo si está dentro de la carpeta de trabajos.
+   Por qué: Es una protección para no borrar archivos de otro lugar. */
 function borrar_archivo($ruta) {
     if (!$ruta) {
         return;
@@ -49,6 +76,9 @@ function borrar_archivo($ruta) {
     }
 }
 
+/* ---------- Limpiar el nombre ----------
+   Qué hace: Quita rutas y caracteres raros del nombre original y lo corta a 200 letras.
+   Por qué: Es el nombre que verá la persona al descargar. */
 function nombre_archivo_limpio($nombre) {
     $n = trim(basename(str_replace('\\', '/', (string)$nombre)));
     $n = preg_replace('/[\x00-\x1F\x7F]/', '', $n);
@@ -58,12 +88,20 @@ function nombre_archivo_limpio($nombre) {
     return function_exists('mb_substr') ? mb_substr($n, 0, 200, 'UTF-8') : substr($n, 0, 200);
 }
 
-/* ---------- Permisos (se comprueban aquí, en el servidor) ---------- */
+/* ---------- Permisos ----------
+   Qué hace: Funciones que deciden quién puede qué. Se comprueban aquí, en el servidor.
+   Por qué: Aunque alguien cambie el JavaScript de su navegador, el servidor no se deja engañar. */
 
+/* ---------- Materias y grupos del profesor ----------
+   Qué hace: Trae las materias y grupos que dicta un profesor.
+   Por qué: Es la base de sus permisos. */
 function asignaciones_de($conexion, $profesor) {
     return filas($conexion, 'SELECT asi_mat_materia AS mat, asi_gru_grupo AS gru FROM asignaciones WHERE asi_pro_profesor = ?', 'i', [$profesor]);
 }
 
+/* ---------- ¿El profesor puede usarla? ----------
+   Qué hace: Responde si el profesor tiene esa materia (y ese grupo, si la actividad es de un grupo).
+   Por qué: Evita que ponga actividades en materias ajenas. */
 // ¿El profesor tiene esa materia (y ese grupo, si la actividad es de un grupo)?
 function profesor_puede($asig, $materia, $grupo) {
     foreach ($asig as $a) {
@@ -77,11 +115,16 @@ function profesor_puede($asig, $materia, $grupo) {
     return false;
 }
 
+/* ---------- Grupo del estudiante ----------
+   Qué hace: Devuelve el grupo de un estudiante. */
 function grupo_de_estudiante($conexion, $codigo) {
     $f = filas($conexion, 'SELECT est_gru_grupo AS g FROM estudiantes WHERE est_codigo = ?', 'i', [$codigo]);
     return $f ? (string)$f[0]['g'] : '';
 }
 
+/* ---------- Contexto de la sesión ----------
+   Qué hace: Reúne rol, código, materias y grupos de la persona. Un acudiente solo entra si ya está validado.
+   Por qué: Con este paquete los demás archivos deciden permisos fácilmente. */
 // Contexto de quien tiene la sesión: rol, código y lo necesario para decidir permisos
 function contexto($conexion) {
     $rol = $_SESSION['rol'];
@@ -109,6 +152,8 @@ function contexto($conexion) {
     return $c;
 }
 
+/* ---------- ¿Puede ver la actividad? ----------
+   Qué hace: Admin: todas. Profesor: las de su materia y grupo. Acudiente y estudiante: las de sus grupos o de todos. */
 function puede_ver($c, $a) {
     if ($c['rol'] === 'admin') {
         return true;
@@ -122,6 +167,9 @@ function puede_ver($c, $a) {
     return $a['act_gru_grupo'] === null || $a['act_gru_grupo'] === $c['grupo'];
 }
 
+/* ---------- ¿Puede editarla o borrarla? ----------
+   Qué hace: Solo el admin y el profesor de esa materia y grupo.
+   Por qué: Estudiantes y acudientes nunca. */
 function puede_gestionar($c, $a) {
     if ($c['rol'] === 'admin') {
         return true;
@@ -132,8 +180,12 @@ function puede_gestionar($c, $a) {
     return false;
 }
 
-/* ---------- Armar las actividades con la forma que ya usa la página ---------- */
+/* ---------- Armar las actividades ----------
+   Qué hace: Dan a los datos de la base la misma forma que ya usa la página.
+   Por qué: Así el JavaScript no tuvo que cambiar cuando se pasó a base de datos. */
 
+/* ---------- Consultar actividades ----------
+   Qué hace: Trae actividades con el nombre de su materia, de la más nueva a la más vieja. */
 function consulta_actividades($conexion, $donde = '', $tipos = '', $params = []) {
     return filas(
         $conexion,
@@ -143,6 +195,9 @@ function consulta_actividades($conexion, $donde = '', $tipos = '', $params = [])
     );
 }
 
+/* ---------- Armar la respuesta ----------
+   Qué hace: Junta cada actividad con sus entregas: el estudiante solo ve las suyas, el acudiente ninguna y los demás todas.
+   Por qué: Las entregas y notas son privadas. */
 function armar_actividades($conexion, $c, $filas) {
     if (!$filas) {
         return [];
@@ -212,6 +267,9 @@ function armar_actividades($conexion, $c, $filas) {
     return $salida;
 }
 
+/* ---------- Una sola actividad ----------
+   Qué hace: Devuelve una actividad ya armada.
+   Por qué: Para responder con la actividad que acaba de cambiar. */
 // Una sola actividad (la que acaba de cambiar), ya armada
 function actividad_armada($conexion, $c, $codigo) {
     $f = consulta_actividades($conexion, 'WHERE a.act_codigo = ?', 'i', [$codigo]);
@@ -219,6 +277,9 @@ function actividad_armada($conexion, $c, $codigo) {
     return $l ? $l[0] : null;
 }
 
+/* ---------- Actividad sin armar ----------
+   Qué hace: Trae una actividad tal como está en la base de datos.
+   Por qué: Para revisar permisos antes de cambiar algo. */
 function cargar_actividad_fila($conexion, $codigo) {
     $f = filas($conexion, 'SELECT * FROM actividades WHERE act_codigo = ?', 'i', [$codigo]);
     return $f ? $f[0] : null;

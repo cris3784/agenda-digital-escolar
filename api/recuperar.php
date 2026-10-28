@@ -1,15 +1,31 @@
 <?php
+/* =========================================================
+   RECUPERAR LA CONTRASEÑA
+   Qué hace: Deja que una persona que olvidó su contraseña entre a su cuenta con un código de 6 dígitos que llega a su correo, y luego elija una contraseña nueva.
+   Por qué: Es la forma segura de recuperar la cuenta sin que nadie más tenga que conocer la contraseña.
+   ========================================================= */
+
 /* Recuperar contraseña con un código de 6 dígitos que llega al correo.
    paso "enviar"    -> la persona escribe su correo y le mandamos el código
    paso "verificar" -> escribe el código; si es correcto, entra a su cuenta
    paso "cambiar"   -> ya dentro, elige su contraseña nueva (15 minutos para hacerlo) */
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae util.php, trae correo_lib.php (envío de correos y códigos) y acepta solo POST.
+   Por qué: Para no repetir código y para que los datos no viajen por la dirección de la página. */
 require __DIR__ . '/util.php';
 require __DIR__ . '/correo_lib.php';
 solo_post();
 
+/* ---------- Leer el paso pedido ----------
+   Qué hace: Toma los datos enviados y el paso (enviar, verificar o cambiar).
+   Por qué: Un solo archivo maneja los tres pasos. */
 $d = entrada();
 $paso = (string)($d['paso'] ?? '');
 
+/* ---------- Buscar la cuenta por correo ----------
+   Qué hace: Busca el correo en estudiantes, profesores y acudientes y devuelve el rol, el código y el nombre de la cuenta (o nada si no existe).
+   Por qué: Cada rol vive en su propia tabla. */
 function buscar_cuenta_por_correo($conexion, $correo) {
     foreach (['estudiante', 'profesor', 'acudiente'] as $rol) {   // el administrador no recupera por correo
         list($tabla, $p) = ROLES[$rol];
@@ -26,6 +42,9 @@ function buscar_cuenta_por_correo($conexion, $correo) {
     return null;
 }
 
+/* ---------- Paso 1: enviar el código ----------
+   Qué hace: Revisa que el correo sea válido, busca la cuenta y, si existe, crea un código y lo manda por correo. Si el correo no se puede enviar, borra el código.
+   Por qué: Si la cuenta no existe se espera un momento y se responde igual, para no revelar qué correos están registrados. */
 if ($paso === 'enviar') {
     $correo = trim((string)($d['correo'] ?? ''));
     if (!filter_var($correo, FILTER_VALIDATE_EMAIL) || strlen($correo) > 120) {
@@ -54,6 +73,9 @@ if ($paso === 'enviar') {
     responder(['ok' => true]);
 }
 
+/* ---------- Paso 2: verificar el código ----------
+   Qué hace: Comprueba el código que escribió la persona. Si es correcto, marca el correo como verificado, revisa que la cuenta exista y esté activa, abre la sesión (con 15 minutos para cambiar la contraseña) y borra los códigos usados.
+   Por qué: Escribir el código que llegó al correo demuestra que el correo es suyo. */
 if ($paso === 'verificar') {
     $correo = trim((string)($d['correo'] ?? ''));
 
@@ -87,6 +109,9 @@ if ($paso === 'verificar') {
     responder(['ok' => true, 'usuario' => $usuario]);
 }
 
+/* ---------- Paso 3: cambiar la contraseña ----------
+   Qué hace: Exige que la persona esté dentro y que no hayan pasado los 15 minutos, revisa que la contraseña nueva tenga entre 6 y 72 caracteres y la guarda cifrada.
+   Por qué: El permiso para cambiarla sin conocer la anterior dura poco y solo existe después de verificar el código. */
 if ($paso === 'cambiar') {
     exigir_sesion();
 
@@ -109,4 +134,7 @@ if ($paso === 'cambiar') {
     responder(['ok' => true]);
 }
 
+/* ---------- Paso desconocido ----------
+   Qué hace: Si el paso no es ninguno de los anteriores, responde con error.
+   Por qué: Protege contra peticiones raras. */
 fallar('Paso no válido.');

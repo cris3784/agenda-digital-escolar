@@ -1,15 +1,18 @@
 /* =========================================================
-   MI PERFIL: guardar el nombre y la foto de perfil
+   MI PERFIL
+   Qué hace: Maneja la pantalla Mi perfil: nombre, apellidos, fecha de nacimiento, foto, cambio de contraseña, verificación del correo y correo del acudiente.
+   Por qué: Es donde cada persona cuida sus propios datos sin pedirle ayuda al administrador.
    ========================================================= */
 
-
 /* ---------- Foto de perfil ----------
-   La foto se recorta en cuadrado y se reduce a 256 px en tu navegador; luego se sube al
-   servidor (api/perfil_guardar.php). Así se ve igual desde cualquier computador o celular.
-   Se ve en: Mi perfil, el menú lateral y el aviso de bienvenida. */
+   Qué hace: La foto se recorta en cuadrado y se reduce a 256 px en el navegador; luego se sube al servidor.
+   Por qué: Así la foto pesa poco y se ve igual en cualquier computador o celular (Mi perfil, menú lateral y bienvenida). */
 
 const PHOTO_SIZE = 256;
 
+/* ---------- Estilos de la foto ----------
+   Qué hace: Agrega a la página los estilos de la foto y sus botones, una sola vez.
+   Por qué: Para no tener que tocar el archivo de estilos. */
 function ensurePhotoStyle(){
 
   if(document.getElementById("photoStyle")) return;
@@ -34,6 +37,9 @@ function ensurePhotoStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Mostrar la foto ----------
+   Qué hace: Pone la foto en el menú lateral y en Mi perfil; si no hay foto, muestra la inicial del nombre.
+   Por qué: Así siempre se ve algo en el círculo, aunque no se haya subido foto. */
 // Pone la foto (o la inicial si no hay foto) en el menú lateral y en Mi perfil
 function applyProfilePhoto(){
 
@@ -59,6 +65,9 @@ function applyProfilePhoto(){
   if(remove) remove.style.display = photo ? "" : "none";
 }
 
+/* ---------- Recortar la foto ----------
+   Qué hace: Lee la imagen, la recorta en cuadrado y la convierte en un archivo JPEG pequeño.
+   Por qué: Una foto de celular pesa mucho; reducirla hace la subida más rápida. */
 // Lee la imagen, la recorta en cuadrado y la devuelve como archivo (JPEG)
 function resizePhoto(file){
   return new Promise((resolve, reject) => {
@@ -84,6 +93,9 @@ function resizePhoto(file){
   });
 }
 
+/* ---------- Guardar el perfil en el servidor ----------
+   Qué hace: Manda el nombre y/o la foto al servidor y, si sale bien, actualiza la copia local.
+   Por qué: Todos los guardados del perfil pasan por aquí, así se hace igual en todos lados. */
 // Envía al servidor el nombre y/o la foto. campos: {nombre, quitar_foto}; archivo: foto ya recortada.
 // Devuelve la respuesta {ok, error, usuario}. Si sale bien, también deja actualizada la copia local.
 async function guardarPerfilServidor(campos, archivo){
@@ -108,12 +120,18 @@ async function guardarPerfilServidor(campos, archivo){
   return r;
 }
 
+/* ---------- Elegir foto ----------
+   Qué hace: Revisa el permiso y abre el selector de archivos.
+   Por qué: Es lo que pasa al hacer clic en el círculo o en el botón de foto. */
 function pickPhoto(){
   if(!requirePermission("edit","perfil")) return;
   const input = document.getElementById("photoInput");
   if(input){ input.value = ""; input.click(); }
 }
 
+/* ---------- Foto elegida ----------
+   Qué hace: Revisa que sea una imagen de menos de 15 MB, la recorta y la sube.
+   Por qué: Para evitar archivos que no sean imágenes o que sean demasiado pesados. */
 async function onPhotoChosen(e){
 
   const file = e.target.files && e.target.files[0];
@@ -132,6 +150,9 @@ async function onPhotoChosen(e){
   }
 }
 
+/* ---------- Quitar la foto ----------
+   Qué hace: Pide confirmación, borra la foto y vuelve a mostrar la inicial.
+   Por qué: Es un cambio que se nota, por eso se pregunta antes. */
 async function removePhoto(){
   if(!requirePermission("edit","perfil")) return;
   if(!currentUser || !currentUser.photo) return;
@@ -142,6 +163,9 @@ async function removePhoto(){
   applyProfilePhoto();
 }
 
+/* ---------- Botones de la foto ----------
+   Qué hace: Crea el botón de cambiar foto y el selector de archivo, y hace clicable el círculo.
+   Por qué: Se crean desde aquí para no tocar el HTML. */
 // Crea el botón y el selector de archivo (no hace falta tocar el HTML)
 function setupPhotoControls(){
 
@@ -175,8 +199,14 @@ function setupPhotoControls(){
   big.addEventListener("click", pickPhoto);
 }
 
+/* ---------- Guardando… ----------
+   Qué hace: Marca si se está guardando el perfil.
+   Por qué: Evita guardar dos veces por clics seguidos. */
 let perfilBusy = false;
 
+/* ---------- Guardar nombre y fecha ----------
+   Qué hace: Revisa que el nombre no esté vacío y que la fecha de nacimiento no sea futura; guarda y actualiza lo que se ve.
+   Por qué: Avisa errores antes de molestar al servidor y deja la pantalla al día sin recargar. */
 async function saveProfile(){
 
   if(!requirePermission("edit","perfil")) return;
@@ -210,8 +240,13 @@ async function saveProfile(){
   alert("Perfil actualizado.");
 }
 
-/* ---------- Pantalla de Mi perfil ---------- */
+/* ---------- Pantalla de Mi perfil ----------
+   Qué hace: Estilos y función que llenan la pantalla con los datos de la cuenta.
+   Por qué: Mantiene lo que se ve igual a lo que está guardado. */
 
+/* ---------- Estilos de Mi perfil ----------
+   Qué hace: Agrega los estilos de la pantalla de perfil, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureProfileStyle(){
   if(document.getElementById("profileStyle")) return;
   const st = document.createElement("style");
@@ -252,6 +287,9 @@ function ensureProfileStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Llenar el perfil ----------
+   Qué hace: Escribe nombre, usuario, correo, grado y fecha en la pantalla; oculta lo que no aplica (el admin no tiene correo ni grado).
+   Por qué: Cada rol necesita ver campos distintos. */
 // "Nombre Apellidos" -> cómo se ve en el encabezado del perfil
 function renderProfile(){
 
@@ -282,7 +320,9 @@ function renderProfile(){
   updateOwnEmailButton();  // "Verificar" o "Verificado ✓"
 }
 
-/* ---------- Cambiar contraseña (ventana emergente) ---------- */
+/* ---------- Cambiar contraseña ----------
+   Qué hace: Funciones de la ventana emergente para cambiar la contraseña.
+   Por qué: La contraseña se cambia en una ventana aparte para no mezclarla con los otros datos. */
 
 function openPwdModal(){
   if(!requirePermission("edit","perfil")) return;
@@ -292,10 +332,16 @@ function openPwdModal(){
   setTimeout(() => $("pwdOld").focus(), 50);
 }
 
+/* ---------- Cerrar la ventana de contraseña ----------
+   Qué hace: Oculta la ventana.
+   Por qué: Se usa con la ✕, con clic afuera y con Escape. */
 function closePwdModal(){
   $("pwdModal").classList.remove("show");
 }
 
+/* ---------- Preparar la ventana de contraseña ----------
+   Qué hace: Conecta los botones y las teclas (Enter y Escape) de la ventana, una sola vez.
+   Por qué: Así la ventana responde bien y no se conecta dos veces. */
 function setupPasswordModal(){
 
   if(!$("pwdModal") || $("pwdModal").dataset.ready) return;
@@ -311,8 +357,14 @@ function setupPasswordModal(){
   ["pwdOld","pwdNew","pwdNew2"].forEach(id => $(id).addEventListener("keydown", e => { if(e.key === "Enter") changePassword(); }));
 }
 
+/* ---------- Guardando… ----------
+   Qué hace: Marca si se está cambiando la contraseña.
+   Por qué: Evita enviarla dos veces. */
 let pwdBusy = false;
 
+/* ---------- Cambiar la contraseña ----------
+   Qué hace: Revisa que los campos estén llenos, que la nueva tenga mínimo 6 caracteres, sea distinta de la actual y coincida; luego la cambia en el servidor.
+   Por qué: Se revisa antes para dar mensajes claros y evitar contraseñas débiles o escritas mal. */
 async function changePassword(){
 
   if(!requirePermission("edit","perfil")) return;
@@ -340,14 +392,22 @@ async function changePassword(){
   if(typeof showToast === "function") showToast("Contraseña actualizada", "Úsala la próxima vez que inicies sesión.", "ok", 3500);
 }
 
-/* ---------- Verificar correo (por ahora solo visual) ---------- */
+/* ---------- Verificar correo ----------
+   Qué hace: Marca el inicio del bloque de verificación del correo. */
 
 /* ---------- Verificar mi propio correo ----------
-   El botón "Verificar" de la fila Correo manda un código de 6 dígitos al correo de la cuenta. */
+   Qué hace: El botón "Verificar" manda un código de 6 dígitos al correo de la cuenta; al escribirlo, el correo queda confirmado.
+   Por qué: Así se sabe que el correo es de verdad de la persona. */
 
+/* ---------- Variables de verificación ----------
+   Qué hace: Guarda si hay un envío en curso (mailBusy) y cuándo se mandó el último código (mailPendingAt).
+   Por qué: Evita mandar muchos códigos seguidos. */
 let mailBusy = false;
 let mailPendingAt = 0;
 
+/* ---------- Botón Verificar ----------
+   Qué hace: Cambia el texto del botón entre "Verificar" y "Verificado ✓".
+   Por qué: Para que la persona vea si su correo ya está confirmado. */
 function updateOwnEmailButton(){
   const b = $("pfVerifyBtn");
   if(!b || !currentUser) return;
@@ -356,6 +416,9 @@ function updateOwnEmailButton(){
   b.classList.toggle("ok", ok);
 }
 
+/* ---------- Ventana del código ----------
+   Qué hace: Crea la ventana donde se escribe el código y conecta sus botones.
+   Por qué: Se crea desde aquí para no tocar el HTML. */
 function ensureMailModal(){
 
   if($("mailModal")) return;
@@ -390,6 +453,9 @@ function ensureMailModal(){
   $("mvCode").addEventListener("input", () => { $("mvCode").value = $("mvCode").value.replace(/\D/g, "").slice(0, 6); });
 }
 
+/* ---------- Abrir la ventana del código ----------
+   Qué hace: Muestra el correo al que se mandó el código y deja el campo listo para escribir.
+   Por qué: Para que la persona sepa a dónde mirar. */
 function openMailModal(){
   ensureMailModal();
   $("mvMail").textContent = (currentUser && currentUser.email) || "";
@@ -399,11 +465,17 @@ function openMailModal(){
   setTimeout(() => $("mvCode").focus(), 50);
 }
 
+/* ---------- Cerrar la ventana del código ----------
+   Qué hace: Oculta la ventana.
+   Por qué: Se usa al terminar o al cancelar. */
 function closeMailModal(){
   const m = $("mailModal");
   if(m) m.classList.remove("show");
 }
 
+/* ---------- Mensajes de la ventana ----------
+   Qué hace: Escribe un mensaje de error o de éxito en la ventana.
+   Por qué: Para explicar qué pasó sin cerrarla. */
 function mailMsg(text, ok){
   const msg = $("mvMsg");
   if(!msg) return;
@@ -411,6 +483,9 @@ function mailMsg(text, ok){
   msg.classList.toggle("ok", !!ok);
 }
 
+/* ---------- Empezar a verificar ----------
+   Qué hace: Pide al servidor que mande el código; si ya se mandó hace poco, solo abre la ventana.
+   Por qué: Evita llenar el correo de códigos si la persona hace clic varias veces. */
 async function startMailVerify(){
 
   if(!currentUser || mailBusy) return;
@@ -444,6 +519,9 @@ async function startMailVerify(){
   openMailModal();
 }
 
+/* ---------- Reenviar código ----------
+   Qué hace: Pide un código nuevo.
+   Por qué: Por si el primero no llegó. */
 async function resendMailCode(){
 
   if(mailBusy) return;
@@ -457,6 +535,9 @@ async function resendMailCode(){
   mailMsg("Te enviamos un código nuevo.", true);
 }
 
+/* ---------- Confirmar el código ----------
+   Qué hace: Revisa que sean 6 números y los manda al servidor; si es correcto, marca el correo como verificado.
+   Por qué: Solo quien recibe el correo puede conocer el código. */
 async function confirmMailCode(){
 
   if(mailBusy) return;
@@ -477,6 +558,9 @@ async function confirmMailCode(){
   if(typeof showToast === "function") showToast("Correo verificado", "Tu correo quedó confirmado.", "ok", 3500);
 }
 
+/* ---------- Conectar el botón Verificar ----------
+   Qué hace: Hace que el botón inicie la verificación.
+   Por qué: Es la conexión entre el botón y la función. */
 function setupVerifyButton(){
   const b = $("pfVerifyBtn");
   if(!b) return;
@@ -484,12 +568,18 @@ function setupVerifyButton(){
 }
 
 /* ---------- Correo del acudiente (solo estudiantes) ----------
-   El estudiante escribe el correo de su acudiente y pulsa "Verificar": al acudiente le llega un
-   código de 6 dígitos, se lo da al estudiante y el estudiante lo escribe aquí. */
+   Qué hace: El estudiante escribe el correo de su acudiente y pulsa "Verificar"; al acudiente le llega un código que le da al estudiante para escribirlo aquí.
+   Por qué: Así el acudiente queda ligado a la agenda del estudiante y se confirma que el correo es real. */
 
+/* ---------- Variables del acudiente ----------
+   Qué hace: Guarda si hay un envío en curso y a qué correo ya se mandó un código.
+   Por qué: Evita mandar códigos repetidos al mismo correo. */
 let guardianBusy = false;
 let guardianPending = null;      // {email, at}: ya se mandó un código a ese correo (no se pide otro enseguida)
 
+/* ---------- Estilos del acudiente ----------
+   Qué hace: Agrega los estilos de esta parte, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureGuardianStyle(){
   if($("guardianStyle")) return;
   const st = document.createElement("style");
@@ -507,6 +597,9 @@ function ensureGuardianStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Guardar la cuenta devuelta ----------
+   Qué hace: Guarda la cuenta que mandó el servidor y la deja como cuenta actual.
+   Por qué: La usan también otros archivos (como correo_cambiar.js). */
 // Guarda en pantalla la cuenta que devolvió el servidor
 function guardarCuentaDevuelta(usuario){
   if(!usuario) return;
@@ -515,17 +608,26 @@ function guardarCuentaDevuelta(usuario){
   localStorage.setItem("ade_current_user", JSON.stringify(user));
 }
 
+/* ---------- Correo escrito ----------
+   Qué hace: Devuelve lo que se escribió en el campo del acudiente.
+   Por qué: Atajo para no repetir el mismo código. */
 function guardianEmailTyped(){
   const i = $("pfGuardianEmail");
   return i ? i.value.trim() : "";
 }
 
+/* ---------- ¿Acudiente verificado? ----------
+   Qué hace: Responde si el correo del acudiente ya está confirmado y es el que está escrito.
+   Por qué: Si se cambia el correo, hay que verificarlo otra vez. */
 function guardianIsVerified(){
   const u = currentUser;
   return !!(u && u.guardianVerified && u.guardianEmail &&
     u.guardianEmail.toLowerCase() === guardianEmailTyped().toLowerCase());
 }
 
+/* ---------- Botón del acudiente ----------
+   Qué hace: Cambia el botón entre "Verificar" y "Verificado ✓" y muestra u oculta el botón de quitar.
+   Por qué: Para que la persona vea el estado de un vistazo. */
 // Cambia el botón: "Verificar" o "Verificado" según lo que haya escrito
 function updateGuardianButton(){
   const btn = $("pfGuardianBtn");
@@ -548,6 +650,9 @@ function updateGuardianButton(){
   }
 }
 
+/* ---------- Fila del acudiente ----------
+   Qué hace: Crea la fila con el campo del correo del acudiente debajo del correo, una sola vez.
+   Por qué: Se crea desde aquí para no tocar el HTML. */
 function ensureGuardianRow(){
 
   if($("pfGuardianRow")) return $("pfGuardianRow");
@@ -580,6 +685,9 @@ function ensureGuardianRow(){
   return row;
 }
 
+/* ---------- Mostrar la fila del acudiente ----------
+   Qué hace: La muestra solo si la cuenta es de un estudiante y llena el correo guardado.
+   Por qué: Profesores y admin no tienen acudiente. */
 function renderGuardianRow(){
 
   const u = currentUser;
@@ -595,6 +703,9 @@ function renderGuardianRow(){
   updateGuardianButton();
 }
 
+/* ---------- Ventana del código del acudiente ----------
+   Qué hace: Crea la ventana para escribir el código y conecta sus botones.
+   Por qué: Igual que la del correo propio, pero para el acudiente. */
 // Ventana donde se escribe el código
 function ensureGuardianModal(){
 
@@ -630,6 +741,9 @@ function ensureGuardianModal(){
   $("gdCode").addEventListener("input", () => { $("gdCode").value = $("gdCode").value.replace(/\D/g, "").slice(0, 6); });
 }
 
+/* ---------- Abrir la ventana del acudiente ----------
+   Qué hace: Muestra a qué correo se mandó el código y la deja lista.
+   Por qué: Para que sepa dónde buscar el código. */
 function openGuardianModal(email){
   ensureGuardianModal();
   $("gdMail").textContent = email;
@@ -639,11 +753,16 @@ function openGuardianModal(email){
   setTimeout(() => $("gdCode").focus(), 50);
 }
 
+/* ---------- Cerrar la ventana del acudiente ----------
+   Qué hace: Oculta la ventana. */
 function closeGuardianModal(){
   const m = $("guardianModal");
   if(m) m.classList.remove("show");
 }
 
+/* ---------- Mensajes del acudiente ----------
+   Qué hace: Escribe un mensaje de error o éxito en la ventana.
+   Por qué: Para explicar qué pasó sin cerrarla. */
 function guardianMsg(text, ok){
   const msg = $("gdMsg");
   if(!msg) return;
@@ -651,6 +770,9 @@ function guardianMsg(text, ok){
   msg.classList.toggle("ok", !!ok);
 }
 
+/* ---------- Verificar al acudiente ----------
+   Qué hace: Revisa el correo escrito, lo guarda, manda el código y abre la ventana.
+   Por qué: Si ya se mandó hace poco al mismo correo, solo abre la ventana para no repetir envíos. */
 // Botón "Verificar" de la pantalla: guarda el correo, manda el código y abre la ventana
 async function startGuardianVerify(){
 
@@ -693,6 +815,9 @@ async function startGuardianVerify(){
   openGuardianModal(email);
 }
 
+/* ---------- Reenviar código al acudiente ----------
+   Qué hace: Pide un código nuevo para el correo guardado.
+   Por qué: Por si el primero no llegó. */
 async function resendGuardianCode(){
 
   if(guardianBusy || !currentUser || !currentUser.guardianEmail) return;
@@ -707,6 +832,9 @@ async function resendGuardianCode(){
   guardianMsg("Te enviamos un código nuevo.", true);
 }
 
+/* ---------- Confirmar código del acudiente ----------
+   Qué hace: Revisa los 6 números, los manda al servidor y marca al acudiente como verificado.
+   Por qué: Así se confirma que el correo es de él. */
 async function confirmGuardianCode(){
 
   if(guardianBusy) return;
@@ -727,6 +855,9 @@ async function confirmGuardianCode(){
   if(typeof showToast === "function") showToast("Acudiente verificado", "Su correo quedó confirmado.", "ok", 3500);
 }
 
+/* ---------- Quitar acudiente ----------
+   Qué hace: Pide confirmación y borra el correo del acudiente.
+   Por qué: Al quitarlo, el acudiente deja de ver la agenda del estudiante, por eso se pregunta. */
 async function removeGuardian(){
 
   if(!requirePermission("edit","perfil")) return;
@@ -745,6 +876,9 @@ async function removeGuardian(){
   renderGuardianRow();
 }
 
+/* ---------- Arranque ----------
+   Qué hace: Al cargar el archivo prepara estilos, ventanas, botones y foto, llena el perfil y conecta el botón Guardar.
+   Por qué: Deja la pantalla de Mi perfil lista desde el primer momento. */
 (function(){
   ensureProfileStyle();
   setupPasswordModal();

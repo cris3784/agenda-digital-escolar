@@ -1,8 +1,20 @@
 <?php
+/* =========================================================
+   REGISTRO DE CUENTAS
+   Qué hace: Crea cuentas nuevas de estudiante, acudiente o profesor en dos pasos: primero valida los datos y manda un código al correo; después, cuando la persona escribe ese código, crea la cuenta de verdad.
+   Por qué: Así nadie se registra con un correo que no es suyo, y los profesores quedan pendientes hasta que un administrador los apruebe.
+   ========================================================= */
+
+/* ---------- Cargar las herramientas ----------
+   Qué hace: Trae util.php, correo_lib.php (envío de correos y códigos) y acepta solo POST.
+   Por qué: Para no repetir código y para que los datos no viajen por la dirección de la página. */
 require __DIR__ . '/util.php';
 require __DIR__ . '/correo_lib.php';
 solo_post();
 
+/* ---------- Limpiar una lista ----------
+   Qué hace: Convierte lo recibido en una lista de textos sin espacios, sin vacíos y sin repetidos.
+   Por qué: Las materias y los grupos llegan como listas y hay que dejarlas limpias antes de revisarlas. */
 function lista($valor) {
     if (!is_array($valor)) {
         return [];
@@ -17,6 +29,9 @@ function lista($valor) {
     return $limpia;
 }
 
+/* ---------- ¿Ya existe ese usuario o correo? ----------
+   Qué hace: Busca el valor en las 4 tablas de cuentas (administradores, profesores, estudiantes y acudientes).
+   Por qué: Un usuario o un correo no puede repetirse entre roles distintos. */
 function ya_existe($conexion, $campo, $valor) {
     foreach (ROLES as $info) {
         list($tabla, $p) = $info;
@@ -27,6 +42,9 @@ function ya_existe($conexion, $campo, $valor) {
     return false;
 }
 
+/* ---------- Crear la cuenta de verdad ----------
+   Qué hace: Guarda la cuenta en su tabla (estudiante, acudiente o profesor) dentro de una transacción. Si es profesor, queda "pendiente" y también guarda sus materias y grupos. Si algo falla, deshace todo.
+   Por qué: Solo se llama cuando el código del correo ya fue verificado; la transacción evita cuentas a medias. */
 // Crea la cuenta de verdad (solo se llama cuando el código del correo ya fue verificado)
 function crear_cuenta($conexion, $p) {
     $nombre = $p['nombre']; $apellidos = $p['apellidos']; $nacim = $p['nacim'];
@@ -77,9 +95,15 @@ function crear_cuenta($conexion, $p) {
     $conexion->commit();
 }
 
+/* ---------- Leer lo que mandó la página ----------
+   Qué hace: Toma los datos enviados.
+   Por qué: Con ellos se sabe en qué paso va el registro. */
 $d = entrada();
 
-/* ---------- Paso 2: la persona escribió el código que le llegó al correo ---------- */
+/* ---------- Paso 2: la persona escribió el código ----------
+   Qué hace: Comprueba el código que le llegó al correo, recupera los datos guardados del paso 1, vuelve a revisar que el usuario y el correo no se hayan ocupado mientras tanto, crea la cuenta y borra los códigos. Responde si el profesor queda pendiente de aprobación.
+   Por qué: La cuenta solo se crea cuando se demuestra que el correo es de la persona. */
+/* Paso 2: la persona escribió el código que le llegó al correo */
 if ((string)($d['paso'] ?? '') === 'confirmar') {
     $correoC = trim((string)($d['correo'] ?? ''));
     $v = verificar_codigo($conexion, $correoC, 'registro', $d['codigo'] ?? '');
@@ -98,7 +122,10 @@ if ((string)($d['paso'] ?? '') === 'confirmar') {
     responder(['ok' => true, 'pendiente' => $p['tipo'] === 'profesor']);
 }
 
-/* ---------- Paso 1: validar los datos y mandar el código al correo ---------- */
+/* ---------- Paso 1: leer los datos ----------
+   Qué hace: Toma el nombre, los apellidos, la fecha de nacimiento, el tipo de cuenta, el usuario, el correo, la contraseña, el grupo y, para profesores, las materias y los grupos.
+   Por qué: Es todo lo que se necesita para crear la cuenta. */
+/* Paso 1: validar los datos y mandar el código al correo */
 $nombre   = trim((string)($d['nombre'] ?? ''));
 $apellidos = trim((string)($d['apellidos'] ?? ''));
 $nacim    = trim((string)($d['nacimiento'] ?? ''));
@@ -110,6 +137,9 @@ $grupo    = trim((string)($d['grupo'] ?? ''));
 $materias = lista($d['materias'] ?? []);
 $grupos   = lista($d['grupos'] ?? []);
 
+/* ---------- Paso 1: validar los datos ----------
+   Qué hace: Comprueba el nombre, los apellidos, la fecha, el tipo de cuenta, el formato del usuario (3 a 40 caracteres, sin espacios ni tildes), el correo, la contraseña (6 a 72 caracteres) y que el usuario y el correo no estén ya registrados.
+   Por qué: Todo se revisa en el servidor; no se puede confiar solo en lo que valida la página. */
 if (largo($nombre) < 2 || largo($nombre) > 100) {
     fallar('Escribe tu nombre completo.');
 }
@@ -134,6 +164,9 @@ if (ya_existe($conexion, 'correo', $correo)) {
     fallar('Ese correo ya está registrado.', 409);
 }
 
+/* ---------- Paso 1: revisar según el tipo de cuenta ----------
+   Qué hace: Si es estudiante o acudiente, comprueba que el grado exista. Si es profesor, comprueba que elija entre 1 y 6 materias que existan y hasta 54 grupos que existan.
+   Por qué: Cada tipo de cuenta necesita datos distintos. */
 $codMaterias = [];
 
 if ($tipo === 'estudiante' || $tipo === 'acudiente') {
@@ -162,6 +195,9 @@ if ($tipo === 'estudiante' || $tipo === 'acudiente') {
     }
 }
 
+/* ---------- Paso 1: guardar los datos y mandar el código ----------
+   Qué hace: Deja los datos ya revisados (con la contraseña cifrada) guardados junto al código, y manda el código de verificación al correo. Si el correo no se puede enviar, borra el código.
+   Por qué: La cuenta todavía no existe; se crea en el paso 2, cuando la persona escribe el código. */
 $pendiente = [
     'nombre' => $nombre, 'apellidos' => $apellidos, 'nacim' => $nacim,
     'tipo' => $tipo, 'usuario' => $usuario, 'correo' => $correo,
@@ -182,4 +218,7 @@ if (!enviar_correo($correo, $nombre, 'Tu código de verificación - A.D.E.', $ht
     fallar('No pudimos enviar el correo. Revisa que esté bien escrito e intenta de nuevo.', 502);
 }
 
+/* ---------- Responder ----------
+   Qué hace: Avisa que el código fue enviado y que ahora la página debe pedirlo.
+   Por qué: Es el paso siguiente del registro. */
 responder(['ok' => true, 'paso' => 'codigo']);

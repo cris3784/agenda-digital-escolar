@@ -1,9 +1,12 @@
 /* =========================================================
-   Aquí solo están los permisos por cargo y las reglas de quién ve y gestiona qué.
-   Los datos (cuentas, materias, actividades, horarios, calendario y notificaciones)
-   viven en la base de datos del servidor, no en este archivo.
+   PERMISOS Y VENTANAS PROPIAS
+   Qué hace: Define qué puede hacer cada cargo (admin, profesor, estudiante, acudiente), las reglas de quién ve y gestiona qué, y las ventanas propias que reemplazan los cuadros feos del navegador.
+   Por qué: Los demás archivos preguntan aquí "¿esta persona puede hacer esto?", así las reglas están en un solo lugar y son iguales en toda la agenda. Los datos reales viven en la base de datos, no aquí.
    ========================================================= */
 
+/* ---------- Limpieza de datos viejos ----------
+   Qué hace: Borra del navegador datos de prueba antiguos que ya no se usan.
+   Por qué: Ahora todo vive en el servidor y esos datos viejos solo estorbarían. */
 // Limpieza única: borra del navegador los datos viejos (de prueba) que ya no se usan
 (function(){
   try{
@@ -16,12 +19,18 @@
 })();
 
 
-/* =========================================================
-   PERMISOS POR CARGO
-   ========================================================= */
+/* ---------- Permisos por cargo ----------
+   Qué hace: Funciones que deciden quién puede hacer qué.
+   Por qué: Para que cada rol solo vea y toque lo que le corresponde. */
  
+/* ---------- Atajo $ ----------
+   Qué hace: Forma corta de escribir document.getElementById.
+   Por qué: Se usa en todos los archivos y evita escribir lo mismo muchas veces. */
 const $ = id => document.getElementById(id);   // atajo usado en todos los archivos
  
+/* ---------- Tabla de permisos ----------
+   Qué hace: Lista, para cada cargo, qué puede crear, editar y borrar (ver, crear, editar, borrar sobre cada cosa).
+   Por qué: Si se quiere dar o quitar un permiso, solo se cambia aquí. El acudiente solo mira. */
 const ROLE_PERMISSIONS = {
   admin: {
     view:   ["inicio","actividades","materias","horario","calendario","perfil","admin"],
@@ -50,6 +59,9 @@ const ROLE_PERMISSIONS = {
   }
 };
  
+/* ---------- Nombres alternativos de cargos ----------
+   Qué hace: Convierte nombres parecidos (teacher, docente, alumno…) al nombre oficial del cargo.
+   Por qué: Para que el sistema entienda el cargo aunque venga escrito distinto. El acudiente ve lo mismo que un estudiante, pero sin poder hacer nada. */
 const ROLE_ALIASES = {
   teacher:"profesor", docente:"profesor",
   student:"estudiante", alumno:"estudiante",
@@ -57,31 +69,49 @@ const ROLE_ALIASES = {
   acudiente:"estudiante"          // ve la agenda del grupo de su hijo, igual que un estudiante (pero sin poder hacer nada)
 };
  
+/* ---------- Cargo de la persona ----------
+   Qué hace: Devuelve el cargo oficial de quien inició sesión (por defecto estudiante).
+   Por qué: Es la base para todas las demás reglas. */
 function getRole(){
   if(!currentUser || !currentUser.role) return "estudiante";
   const role = String(currentUser.role).toLowerCase().trim();
   return ROLE_ALIASES[role] || role;
 }
  
+/* ---------- ¿Es acudiente? ----------
+   Qué hace: Responde si la cuenta es de un acudiente.
+   Por qué: Porque el acudiente se trata como estudiante pero con limitaciones. */
 function isGuardian(){
   return !!(currentUser && String(currentUser.role || "").toLowerCase().trim() === "acudiente");
 }
 
+/* ---------- ¿Tiene permiso? ----------
+   Qué hace: Responde sí o no si el cargo puede hacer esa acción sobre ese recurso (ej. crear una actividad).
+   Por qué: Se usa para mostrar u ocultar botones y para bloquear acciones. */
 function hasPermission(action, resource){
   const own = currentUser ? ROLE_PERMISSIONS[String(currentUser.role || "").toLowerCase().trim()] : null;
   const permissions = own || ROLE_PERMISSIONS[getRole()] || ROLE_PERMISSIONS.estudiante;
   return permissions[action]?.includes(resource) || false;
 }
  
+/* ---------- Negar el permiso ----------
+   Qué hace: Muestra el aviso "No tienes permisos…".
+   Por qué: Para que la persona entienda por qué no pasó nada. */
 function denyPermission(){
   alert("No tienes permisos para realizar esta acción con tu cargo.");
   return false;
 }
  
+/* ---------- Exigir permiso ----------
+   Qué hace: Si tiene permiso devuelve verdadero; si no, muestra el aviso.
+   Por qué: Se pone al inicio de cada acción para protegerla en una sola línea. */
 function requirePermission(action, resource){
   return hasPermission(action, resource) || denyPermission();
 }
  
+/* ---------- Aplicar permisos a la pantalla ----------
+   Qué hace: Muestra u oculta botones, menús y páginas según el cargo (Administración solo admin, Mis estudiantes solo profesor, etc.).
+   Por qué: Así cada persona ve solo lo que puede usar. */
 function applyPermissions(){
  
   const isAdmin = getRole() === "admin";
@@ -115,13 +145,21 @@ function applyPermissions(){
  }
 
 
-/* ---------- Materias y grupos de cada cuenta ---------- */
+/* ---------- Materias y grupos de cada cuenta ----------
+   Qué hace: Funciones para saber qué materias y grupos tiene cada profesor o estudiante.
+   Por qué: Con eso se decide qué actividades y eventos ve cada uno. */
 
+/* ---------- Normalizar texto ----------
+   Qué hace: Pasa el texto a minúsculas y sin tildes.
+   Por qué: Para comparar nombres aunque estén escritos distinto. */
 function normText(t){
   return String(t == null ? "" : t).toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
+/* ---------- Materias del profesor ----------
+   Qué hace: Devuelve la lista de materias que dicta (puede ser más de una).
+   Por qué: Hay profesores con una sola materia y otros con varias. */
 // Materias que dicta un profesor (puede ser más de una)
 function teacherSubjects(u = currentUser){
   if(!u) return [];
@@ -129,22 +167,34 @@ function teacherSubjects(u = currentUser){
   return u.subject ? [String(u.subject)] : [];
 }
 
+/* ---------- Materias en texto ----------
+   Qué hace: Junta las materias en una frase ("Matemáticas y Física").
+   Por qué: Para mostrarlas bonito en pantalla. */
 // "Matemáticas", "Matemáticas y Física", "Matemáticas, Física y Química"
 function teacherSubjectsText(u = currentUser){
   const l = teacherSubjects(u);
   return l.length < 2 ? (l[0] || "") : l.slice(0, -1).join(", ") + " y " + l[l.length - 1];
 }
 
+/* ---------- Grupos del profesor ----------
+   Qué hace: Devuelve los grupos que atiende; si no tiene (cuenta antigua), no se limita por grupo.
+   Por qué: Para que un profesor solo trabaje con sus grupos. */
 // Grupos que atiende un profesor. null = cuenta antigua sin grupos (no se limita por grupo)
 function teacherGroups(u = currentUser){
   return (u && Array.isArray(u.groups) && u.groups.length) ? u.groups : null;
 }
 
+/* ---------- Grupo del estudiante ----------
+   Qué hace: Devuelve el grupo del estudiante (ej. 7-1).
+   Por qué: Se usa para mostrarle solo lo de su grupo. */
 // Grupo del estudiante (ej. "7-1")
 function studentGroup(u = currentUser){
   return u && u.grade ? String(u.grade) : "";
 }
 
+/* ---------- ¿Puede el profesor usar esa materia y grupo? ----------
+   Qué hace: Revisa que la materia sea suya y el grupo uno de los suyos.
+   Por qué: Evita que un profesor ponga actividades en materias o grupos ajenos. */
 // ¿Puede el profesor trabajar con esa materia y ese grupo?
 function teacherCanUse(subject, group){
   const okSubject = teacherSubjects().some(s => normText(s) === normText(subject));
@@ -152,6 +202,9 @@ function teacherCanUse(subject, group){
   return okSubject && (!group || !groups || groups.includes(group));
 }
 
+/* ---------- ¿Puede ver la actividad? ----------
+   Qué hace: Admin: todas. Profesor: las de su materia y grupo. Estudiante: las de su grupo.
+   Por qué: Cada quien debe ver solo lo suyo. */
 // ¿Esta actividad le corresponde a quien tiene la sesión iniciada?
 function canSeeActivity(a){
   if(!a) return false;
@@ -161,6 +214,9 @@ function canSeeActivity(a){
   return !a.group || a.group === studentGroup();      // estudiante: solo su grupo
 }
 
+/* ---------- ¿Puede gestionar la actividad? ----------
+   Qué hace: Admin: todas. Profesor: solo su materia y su grupo. Estudiante: ninguna.
+   Por qué: Para que nadie modifique actividades que no le tocan. */
 // ¿Puede editarla o borrarla? (admin: todas; profesor: solo su materia y su grupo)
 function canManageActivity(a){
   const role = getRole();
@@ -169,6 +225,9 @@ function canManageActivity(a){
   return false;
 }
 
+/* ---------- ¿Puede gestionar el evento? ----------
+   Qué hace: Admin: todos. Profesor: solo los que él publicó. Los demás: ninguno.
+   Por qué: Los eventos del administrador (formación, izada de bandera…) son solo suyos. */
 // Eventos del calendario.
 // Los que puso el administrador (formación, izada de bandera…) son solo suyos;
 // cada profesor solo edita o borra los que él mismo publicó.
@@ -179,6 +238,9 @@ function canManageEvent(ev){
   return false;
 }
 
+/* ---------- ¿Puede ver el evento? ----------
+   Qué hace: Sin grupos es para todos; con grupos, solo para esos grupos.
+   Por qué: Así los avisos llegan solo a quienes les importan. */
 // ¿Puede ver el evento? (sin grupos = para todos; con grupos = solo esos grupos)
 function canSeeEvent(ev){
   if(!ev) return false;
@@ -192,15 +254,23 @@ function canSeeEvent(ev){
   return ev.groups.includes(studentGroup());
 }
 
-/* =========================================================
-   VENTANAS PROPIAS (en vez de los cuadros del navegador)
-   adeAlert(texto) · adeConfirm(texto, opciones) · adePrompt(texto, valor, opciones) · adeForm(opciones)
-   Dentro de adeForm hay un tipo "groups" para elegir grupos: todo el colegio, un grado completo o solo algunos.
-   ========================================================= */
+/* ---------- Ventanas propias ----------
+   Qué hace: Reemplazan los cuadros del navegador (alert, confirm, prompt) por ventanas bonitas: adeAlert, adeConfirm, adePrompt y adeForm. Tienen un tipo "groups" para elegir grupos.
+   Por qué: Se ven mejor, son iguales en todo el programa y se pueden personalizar. */
 
+/* ---------- Guardar el alert original ----------
+   Qué hace: Guarda el alert() del navegador.
+   Por qué: Por si hay que usarlo cuando la página aún no está lista. */
 const adeNativeAlert = window.alert ? window.alert.bind(window) : null;
+
+/* ---------- Fila de ventanas ----------
+   Qué hace: Una promesa que lleva la cuenta de las ventanas pendientes.
+   Por qué: Para que se muestre una ventana a la vez. */
 let adeQueue = Promise.resolve();
 
+/* ---------- Una ventana a la vez ----------
+   Qué hace: Si se piden varias ventanas, salen una después de otra.
+   Por qué: Evita ventanas encimadas. */
 // Una ventana a la vez: si se piden varias, salen una después de otra
 function adeEnqueue(fn){
   const p = adeQueue.then(fn);
@@ -208,10 +278,16 @@ function adeEnqueue(fn){
   return p;
 }
 
+/* ---------- Limpiar texto ----------
+   Qué hace: Cambia símbolos especiales por versiones seguras.
+   Por qué: Para que lo escrito no dañe la página. */
 function adeEsc(t){
   return String(t == null ? "" : t).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+/* ---------- Estilos de las ventanas ----------
+   Qué hace: Agrega los estilos de las ventanas, una sola vez.
+   Por qué: Para no tocar el archivo de estilos. */
 function ensureDialogStyle(){
 
   if(document.getElementById("adeDialogStyle")) return;
@@ -267,6 +343,9 @@ function ensureDialogStyle(){
   document.head.appendChild(st);
 }
 
+/* ---------- Lista de grupos ----------
+   Qué hace: Devuelve los grupos del colegio (los del servidor o, si no llegaron, del 6-1 al 11-9).
+   Por qué: Así siempre hay una lista para ofrecer. */
 function adeGroupList(){
   if(window.ADE_CURRICULUM && Array.isArray(ADE_CURRICULUM.groups) && ADE_CURRICULUM.groups.length) return ADE_CURRICULUM.groups.slice();
   const l = [];
@@ -274,6 +353,9 @@ function adeGroupList(){
   return l;
 }
 
+/* ---------- Ordenar grupos ----------
+   Qué hace: Ordena los grupos (6-1, 6-2… 7-1…).
+   Por qué: Para que se vean en orden y no mezclados. */
 function adeSortGroups(list){
   return list.slice().sort((a, b) => {
     const x = a.split("-").map(Number), y = b.split("-").map(Number);
@@ -281,6 +363,9 @@ function adeSortGroups(list){
   });
 }
 
+/* ---------- Elegir grupos ----------
+   Qué hace: Dibuja el selector de grupos: todo el colegio, un grado completo o solo algunos.
+   Por qué: Es lo que se usa al publicar un evento o actividad para ciertos grupos. */
 // Elegir grupos: "Todo el colegio", un grado completo (7-1 … 7-9) o solo algunos
 function adeGroupsMount(box, f){
 
@@ -352,6 +437,9 @@ function adeGroupsMount(box, f){
   };
 }
 
+/* ---------- Campo del formulario ----------
+   Qué hace: Arma cada campo según su tipo (lista, texto largo, grupos o texto normal).
+   Por qué: Así un mismo formulario puede tener distintos tipos de campos. */
 function adeFieldHtml(f){
 
   const id = "adeF_" + f.id;
@@ -375,6 +463,9 @@ function adeFieldHtml(f){
   return '<div class="ade-field' + (f.half ? " half" : "") + '"><label' + (f.type === "groups" ? "" : ' for="' + id + '"') + '>' + adeEsc(f.label || "") + '</label>' + input + '</div>';
 }
 
+/* ---------- Mostrar una ventana ----------
+   Qué hace: Arma y muestra la ventana con título, campos y botones; devuelve lo escrito, {} si no había campos, o null si se cancela.
+   Por qué: Es la base de todas las ventanas; las demás funciones la reutilizan. */
 // Muestra una ventana. Devuelve (como promesa) los valores escritos, {} si no tenía campos, o null si se canceló.
 function adeShow(o){
 
@@ -454,12 +545,21 @@ function adeShow(o){
   }));
 }
 
+/* ---------- Formulario ----------
+   Qué hace: Atajo para abrir una ventana con campos.
+   Por qué: Nombre más claro para quien lo usa. */
 function adeForm(o){ return adeShow(o); }
 
+/* ---------- Aviso ----------
+   Qué hace: Muestra un aviso con un solo botón "Entendido".
+   Por qué: Para informar algo sin pedir respuesta. */
 function adeAlert(text, title){
   return adeShow({title: title || "Aviso", icon: "ℹ️", text: String(text == null ? "" : text), ok: "Entendido", cancel: false}).then(() => undefined);
 }
 
+/* ---------- Pregunta Sí/No ----------
+   Qué hace: Muestra una pregunta y devuelve true o false.
+   Por qué: Se usa antes de acciones serias como borrar. */
 // Pregunta Sí/No. Devuelve true o false.
 function adeConfirm(text, o){
   o = o || {};
@@ -469,6 +569,9 @@ function adeConfirm(text, o){
   }).then(r => r !== null);
 }
 
+/* ---------- Pedir un texto ----------
+   Qué hace: Pide que se escriba algo y lo devuelve (o null si se cancela).
+   Por qué: Reemplaza al prompt() del navegador. */
 // Pide un texto. Devuelve lo escrito o null si se canceló.
 function adePrompt(label, value, o){
   o = o || {};
@@ -479,6 +582,9 @@ function adePrompt(label, value, o){
   }).then(r => r ? r.v : null);
 }
 
+/* ---------- Reemplazar el alert ----------
+   Qué hace: Hace que todos los alert() del programa usen la ventana bonita.
+   Por qué: Así no hay que cambiar cada archivo uno por uno. */
 // Los alert() de todo el programa salen con la ventana bonita (sin tocar cada archivo)
 window.alert = function(msg){
   if(!document.body){ if(adeNativeAlert) adeNativeAlert(msg); return; }

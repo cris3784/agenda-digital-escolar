@@ -1,20 +1,27 @@
 /* =========================================================
-   HORARIO EDITABLE PARA ADMINISTRADOR
-   Cada clase se dibuja según su hora real, así que las clases de
-   distintos días que empiezan a la misma hora quedan niveladas.
-   El descanso se dibuja como una franja centrada en todos los días.
+   HORARIO DE CLASES
+   Qué hace: Dibuja el horario semanal (lunes a viernes) según la hora real de cada clase. El administrador puede agregar, editar y borrar clases; el estudiante ve el de su grupo y el profesor ve sus clases.
+   Por qué: Dibujar cada clase según su hora hace que las clases de distintos días que empiezan a la misma hora queden niveladas, y el descanso se ve como una franja en todos los días.
    ========================================================= */
 
+/* ---------- El horario que se muestra ----------
+   Qué hace: Guarda la lista de clases que se está viendo ahora (las de un grupo o las del profesor).
+   Por qué: Los datos reales vienen de la base de datos; esta variable es la copia que se dibuja. */
 // Los horarios viven en la base de datos (api/horarios.php): una lista de clases por grupo.
 // "schedule" es el horario que se está mostrando ahora (el de un grupo, o las clases del profesor).
 let schedule = [];
 
-/* ---------- Un horario por grupo (viene del servidor) ---------- */
+/* ---------- Un horario por grupo ----------
+   Qué hace: Guarda los horarios de todos los grupos, cuál grupo mira el administrador y en qué modo está (grupo, profesor o antiguo).
+   Por qué: Cada grupo tiene su propio horario y cada rol lo ve distinto. */
 
 let groupSchedules = {};
 let scheduleGroup = "";           // grupo que está viendo/editando el administrador
 let scheduleMode = "legacy";      // "group" | "teacher" | "legacy"
 
+/* ---------- Traer horarios del servidor ----------
+   Qué hace: Pide los horarios al servidor y los guarda.
+   Por qué: Así todos ven el horario más actual. */
 async function cargarHorariosServidor(){
   try{
     const resp = await fetch("api/horarios.php", {credentials:"same-origin", cache:"no-store"});
@@ -27,6 +34,9 @@ async function cargarHorariosServidor(){
   }
 }
 
+/* ---------- Recargar horarios ----------
+   Qué hace: Vuelve a pedir los horarios y redibuja la pantalla.
+   Por qué: Para ver los cambios después de guardar. */
 // Vuelve a pedir los horarios y redibuja la pantalla
 async function recargarHorarios(){
   const ok = await cargarHorariosServidor();
@@ -34,6 +44,9 @@ async function recargarHorarios(){
   return ok;
 }
 
+/* ---------- Elegir el horario de la cuenta ----------
+   Qué hace: Estudiante: el de su grupo. Profesor: sus clases de todos sus grupos. Admin: el grupo que escoja.
+   Por qué: Cada persona solo debe ver lo que le corresponde. */
 // Elige el horario que le toca a la cuenta que inició sesión:
 //  estudiante = el de su grupo · profesor = sus clases de todos sus grupos · admin = el grupo que elija
 function ttPrepare(){
@@ -80,6 +93,9 @@ function ttPrepare(){
   }
 }
 
+/* ---------- Selector de grupo ----------
+   Qué hace: Muestra un desplegable para que el administrador elija el grupo cuyo horario quiere ver o editar.
+   Por qué: El admin maneja muchos grupos; los demás roles no necesitan elegir. */
 // Selector de grupo (solo administrador)
 function ttGroupPicker(el){
 
@@ -110,23 +126,22 @@ function ttGroupPicker(el){
 }
 
 
-/* ---------------------------------------------------------
-   TAMAÑO: píxeles por minuto.
-   Más pequeño = número menor (ej. 0.9). Más grande = mayor (ej. 1.4).
-   --------------------------------------------------------- */
+/* ---------- Tamaño del horario ----------
+   Qué hace: Define cuántos píxeles mide cada minuto (TT_SCALE) y a qué hora empieza y termina la jornada (6:00 a 11:45).
+   Por qué: Con un tamaño fijo el horario se ve igual en todas las pantallas. Para hacerlo más pequeño o grande se cambia el número. */
 const TT_SCALE = 1.5;          // tamaño fijo, igual en todas las pantallas (calendario y horario con la misma escala)
 const TT_DAY_START = 6 * 60;           // 6:00
 const TT_DAY_END = 11 * 60 + 45;       // 11:45
 
-/* ---------------------------------------------------------
-   DESCANSO: franja centrada que cruza todos los días.
-   Cambia la hora si tu descanso es otra (formato "8:37 - 9:07").
-   Para quitar el descanso escribe:  const TT_BREAK = null;
-   --------------------------------------------------------- */
+/* ---------- Descanso ----------
+   Qué hace: Define el descanso (8:37 - 9:07) como una franja que cruza todos los días.
+   Por qué: Si el colegio cambia la hora del descanso solo se edita aquí; con TT_BREAK = null se quita. */
 const TT_BREAK = {label:"DESCANSO", time:"8:37 - 9:07"};
 
 
-/* ---------- Horario del profesor: solo sus clases ---------- */
+/* ---------- Nombres cortos de las materias ----------
+   Qué hace: Tabla que traduce los nombres cortos del horario (ej. "tec e inf") a la materia de la lista de Materias.
+   Por qué: El horario viene con abreviaturas y así se puede saber qué clase es de cada profesor. */
 
 // Nombres cortos del horario -> materia de la lista de Materias
 const TT_SUBJECT_ALIASES = {
@@ -137,6 +152,9 @@ const TT_SUBJECT_ALIASES = {
   "cien econ y pol":"Economía"
 };
 
+/* ---------- Actividades de la clase ----------
+   Qué hace: Cuenta las actividades de esa materia: al profesor le dice cuántas puso, al estudiante cuántas le faltan.
+   Por qué: Así se ve en el horario si hay tareas pendientes de cada clase. */
 // Actividades de la materia de esta clase (y de su grupo): el profesor ve cuántas ha puesto,
 // el estudiante cuántas tiene pendientes.
 function ttClassActs(c){
@@ -150,11 +168,17 @@ function ttClassActs(c){
   }).length;
 }
 
+/* ---------- Normalizar texto ----------
+   Qué hace: Pasa el texto a minúsculas y sin tildes.
+   Por qué: Para comparar nombres aunque estén escritos distinto ("Matemáticas" y "matematicas"). */
 function ttNorm(t){
   return String(t == null ? "" : t).toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
+/* ---------- ¿Es de mi materia? ----------
+   Qué hace: Compara la clase del horario con la materia del profesor, usando los nombres cortos si hace falta.
+   Por qué: Para mostrarle al profesor solo sus clases. */
 // ¿Esta clase del horario es de la materia del profesor?
 function ttClassIsOfSubject(classSubject, teacherSubject){
   const mine = ttNorm(teacherSubject);
@@ -166,14 +190,22 @@ function ttClassIsOfSubject(classSubject, teacherSubject){
 }
 
 
-/* ---------- Utilidades ---------- */
+/* ---------- Utilidades ----------
+   Qué hace: Funciones pequeñas de ayuda: limpiar texto, leer horas y escribirlas.
+   Por qué: Se usan en muchos lugares del archivo. */
 
+/* ---------- Limpiar texto ----------
+   Qué hace: Cambia símbolos especiales por versiones seguras.
+   Por qué: Para que lo escrito no dañe la página. */
 function ttEsc(t){
   return String(t == null ? "" : t).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 }
 
+/* ---------- Leer una hora ----------
+   Qué hace: Convierte un texto como "6:00 - 7:45" en minutos de inicio y fin.
+   Por qué: Con minutos se puede calcular el tamaño y la posición de cada clase. */
 // Convierte "6:00 - 7:45" (o "6:00 AM - 7:45 AM") en minutos {start, end}
 function ttParseTime(str){
 
@@ -211,6 +243,9 @@ function ttParseTime(str){
 
 }
 
+/* ---------- Escribir una hora ----------
+   Qué hace: Convierte minutos en texto tipo "7:45".
+   Por qué: Es lo contrario de la función de arriba: sirve para mostrar horas. */
 // Minutos -> "7:45"
 function ttFmt(min){
   const h = Math.floor(min / 60);
@@ -225,13 +260,18 @@ function ttHourLabel(h){
 }
 
 
-/* ---------- Ayudas visuales (iconos, colores, fechas) ---------- */
+/* ---------- Ayudas visuales ----------
+   Qué hace: Periodos de clase, días de la semana, colores e iconos de las materias.
+   Por qué: Hacen que el horario sea fácil de leer a simple vista. */
 
 // Filas de clase (periodos) que se ven en la columna "Hora"
 const TT_PERIODS = [[360,412],[412,465],[465,517],[547,600],[600,652],[652,705]];
 
 const TT_DAY_INDEX = {lunes:0, martes:1, miercoles:2, jueves:3, viernes:4, sabado:5, domingo:6};
 
+/* ---------- Color de la materia ----------
+   Qué hace: Devuelve el color de la materia (el mismo de materias.js); si no existe, inventa uno fijo a partir del nombre.
+   Por qué: Así cada materia siempre se ve del mismo color. */
 // Color de la materia (el mismo que usa materias.js)
 function ttColor(name){
   try{
@@ -245,6 +285,9 @@ function ttColor(name){
   return "hsl(" + h + " 52% 46%)";
 }
 
+/* ---------- Nombre de la materia ----------
+   Qué hace: Cambia el nombre corto por el nombre completo.
+   Por qué: Para mostrar "Castellano" en vez de "LENG CASTELLANA". */
 // "LENG CASTELLANA" -> "Castellano"
 function ttSubjectName(raw){
   return TT_SUBJECT_ALIASES[ttNorm(raw)] || raw;
@@ -254,6 +297,9 @@ function ttIconHtml(name){
   return typeof subjectIcon === "function" ? subjectIcon(name, "sm") : "";
 }
 
+/* ---------- Fechas de la semana ----------
+   Qué hace: Calcula la fecha de cada día y marca cuál resaltar: HOY entre semana; el fin de semana resalta el lunes (MAÑANA o PRÓXIMO).
+   Por qué: Para que siempre haya un día marcado y la persona se ubique rápido. */
 // Fecha de cada día de la semana y cuál se resalta.
 //  · Lunes a viernes: se marca el día de hoy con "HOY" (y la clase que está en curso).
 //  · Sábado y domingo no hay clases: se muestra la semana siguiente y se resalta el lunes
@@ -280,7 +326,9 @@ function ttWeekInfo(days){
 }
 
 
-/* ---------- Estilos propios del horario ---------- */
+/* ---------- Estilos del horario ----------
+   Qué hace: Agrega a la página los estilos (colores, tamaños y formas) del horario, solo una vez.
+   Por qué: Así el horario se ve bien sin tocar el archivo de estilos. */
 
 function ttEnsureStyle(){
 
@@ -491,7 +539,9 @@ function ttEnsureStyle(){
 }
 
 
-/* ---------- Dibujar el horario ---------- */
+/* ---------- Dibujar el horario ----------
+   Qué hace: Arma la tabla: encabezados de días, columna de horas, cada clase en su lugar, la franja de descanso y los botones del admin.
+   Por qué: Es la función principal; se ejecuta cada vez que hay que mostrar o actualizar el horario. */
 
 function renderSchedule(){
 
@@ -751,8 +801,13 @@ function renderSchedule(){
 }
 
 
-/* ---------- Agregar / editar / borrar ---------- */
+/* ---------- Agregar, editar y borrar clases ----------
+   Qué hace: Funciones del administrador para cambiar el horario y avisar a los grupos.
+   Por qué: Cualquier cambio se guarda en el servidor para que todos lo vean. */
 
+/* ---------- Avisar el cambio ----------
+   Qué hace: Manda una notificación al grupo y a sus profesores cuando el horario cambia.
+   Por qué: Para que nadie se pierda una clase por no enterarse. */
 // Avisa a los del grupo (y a sus profesores) que el horario cambió
 function ttNotifyChange(what){
   if(typeof notify !== "function") return;
@@ -766,8 +821,14 @@ function ttNotifyChange(what){
   });
 }
 
+/* ---------- Guardando… ----------
+   Qué hace: Marca si se está guardando un cambio.
+   Por qué: Evita guardar dos veces por clics seguidos. */
 let horarioBusy = false;
 
+/* ---------- Materia escrita a materia de la lista ----------
+   Qué hace: Busca la materia escrita dentro de la lista oficial de materias.
+   Por qué: Evita guardar materias con el nombre mal escrito. */
 // Convierte lo escrito (acepta los nombres cortos del horario) a una materia de la lista
 function ttResolveSubject(text){
   const n = ttNorm(ttSubjectName(text));
@@ -779,6 +840,9 @@ function ttToHHMM(min){
   return String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
 }
 
+/* ---------- Guardar en el servidor ----------
+   Qué hace: Manda el cambio al servidor, vuelve a pedir los horarios y dice si salió bien.
+   Por qué: Así lo que se ve en pantalla es siempre lo que quedó guardado. */
 // Guarda un cambio en el servidor y vuelve a pedir los horarios. Devuelve true si salió bien.
 async function guardarHorario(datos){
   if(horarioBusy) return false;
@@ -790,6 +854,9 @@ async function guardarHorario(datos){
   return true;
 }
 
+/* ---------- Ventana para pedir los datos ----------
+   Qué hace: Abre un formulario con materia, hora de inicio y fin, y salón; devuelve los datos o nada si se cancela.
+   Por qué: Se usa igual para agregar que para editar una clase. */
 // Pide materia, hora y salón en una ventana. Devuelve los datos listos para enviar, o null si se canceló.
 async function ttAskClass(c){
 
@@ -812,6 +879,9 @@ async function ttAskClass(c){
   return {materia:r.materia, inicio:r.inicio, fin:r.fin, salon:r.salon.trim(), hora:fmt(r.inicio) + " - " + fmt(r.fin)};
 }
 
+/* ---------- Agregar clase ----------
+   Qué hace: Revisa el permiso, pide los datos y guarda una clase nueva en el día elegido.
+   Por qué: Solo el administrador puede hacerlo. */
 async function addScheduleItem(di){
   if(!requirePermission("create","horario")) return;
   if(scheduleMode !== "group" || !scheduleGroup) return;
@@ -822,6 +892,9 @@ async function addScheduleItem(di){
   if(ok) ttNotifyChange("Se agregó " + q.materia + " el " + day + " (" + q.hora + ").");
 }
 
+/* ---------- Editar clase ----------
+   Qué hace: Abre el formulario con los datos de la clase y guarda los cambios.
+   Por qué: Para corregir una hora, un salón o la materia. */
 async function editScheduleItem(di,ci){
   if(!requirePermission("edit","horario")) return;
   const c = schedule[di].classes[ci];
@@ -833,6 +906,9 @@ async function editScheduleItem(di,ci){
   if(ok) ttNotifyChange("Cambió " + q.materia + " el " + day + " (" + q.hora + ").");
 }
 
+/* ---------- Borrar clase ----------
+   Qué hace: Pide confirmación y quita la clase del horario.
+   Por qué: Es definitivo, por eso se pregunta antes. */
 async function deleteScheduleItem(di,ci){
   if(!requirePermission("delete","horario")) return;
   const c = schedule[di].classes[ci];
@@ -843,10 +919,16 @@ async function deleteScheduleItem(di,ci){
   if(ok) ttNotifyChange("Se quitó " + c.subject + " del " + day + ".");
 }
 
+/* ---------- Días de la semana ----------
+   Qué hace: Avisa que el horario siempre es de lunes a viernes.
+   Por qué: Ya no se pueden agregar días nuevos. */
 // El horario usa siempre los días de lunes a viernes (los botones de días no se muestran)
 function addScheduleDay(){ alert("El horario usa los días de lunes a viernes."); }
 
 
+/* ---------- Actualizar cada minuto ----------
+   Qué hace: Cada minuto vuelve a dibujar el horario si está a la vista.
+   Por qué: Para que "HOY" y "En curso" cambien solos mientras pasa el día. No lo hace si la persona está escribiendo en el selector. */
 // Actualiza "En curso" y "HOY" cada minuto (solo si el horario está a la vista)
 setInterval(function(){
   const el = document.getElementById("scheduleList");
